@@ -1,0 +1,1433 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-slate-950 text-slate-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>LegalMind - Red Visual de Referidos Legal</title>
+
+  <!-- PWA Web App Manifest (Data URI) -->
+  <link rel="manifest" id="pwa-manifest">
+
+  <!-- Configuración PWA / iOS / Android -->
+  <meta name="theme-color" content="#f59e0b">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="LegalMind">
+  <link rel="apple-touch-icon" href="https://placehold.co/192x192/f59e0b/030712?text=LM">
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Vis.js Network -->
+  <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <!-- Google Fonts: Inter & Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Firebase SDKs (v8.10.0 - Base, Auth, Database, Storage sin FCM) -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-storage.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0f7ff',
+              500: '#3b82f6',
+              600: '#2563eb',
+              900: '#1e3a8a',
+            },
+            gold: {
+              400: '#fbbf24',
+              500: '#f59e0b',
+              600: '#d97706',
+            },
+            slate: {
+              850: '#111827',
+              950: '#030712',
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            heading: ['Outfit', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #090d16;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1f293d;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #374151;
+    }
+    canvas {
+      touch-action: none;
+    }
+    .modal-backdrop {
+      backdrop-filter: blur(8px);
+    }
+  </style>
+</head>
+
+<body class="h-full flex flex-col font-sans overflow-hidden bg-slate-950 text-slate-100">
+
+  <!-- NAVBAR SUPERIOR -->
+  <header class="h-16 bg-slate-900/90 border-b border-slate-800/80 px-4 flex items-center justify-between shrink-0 z-20">
+    <div class="flex items-center space-x-3">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-amber-300 flex items-center justify-center text-slate-950 shadow-lg shadow-amber-500/20 font-bold text-xl">
+        <i class="fa-solid font-heading fa-scale-balanced"></i>
+      </div>
+      <div>
+        <h1 class="font-heading font-bold text-lg md:text-xl text-white tracking-wide leading-tight flex items-center gap-2">
+          LegalMind <span class="text-xs bg-amber-500/10 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full font-sans font-medium">Red de Referidos</span>
+        </h1>
+        <p class="text-xs text-slate-400 hidden sm:block" id="despachoSubTitle">Despacho en curso: Sincronizando...</p>
+      </div>
+    </div>
+
+    <!-- Barra de Acciones y Filtro Global de Lapso -->
+    <div class="flex items-center space-x-2">
+      <!-- Selector Global de Período -->
+      <div class="hidden lg:flex items-center bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-xs">
+        <i class="fa-solid fa-calendar-days text-amber-400 mr-2"></i>
+        <select id="globalTimeRange" onchange="handleTimeRangeChange()" class="bg-transparent text-slate-200 focus:outline-none border-none">
+          <option value="all" class="bg-slate-900 text-slate-200">Histórico Total</option>
+          <option value="week" class="bg-slate-900 text-slate-200">Esta Semana</option>
+          <option value="month" class="bg-slate-900 text-slate-200">Este Mes</option>
+          <option value="year" class="bg-slate-900 text-slate-200">Este Año</option>
+          <option value="custom" class="bg-slate-900 text-slate-200">Rango Personalizado</option>
+        </select>
+      </div>
+
+      <button id="pwaInstallBtn" onclick="installPWA()" class="hidden bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs px-3 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5">
+        <i class="fa-solid fa-download"></i> <span class="hidden md:inline">Instalar App</span>
+      </button>
+
+      <button onclick="openModal('modalContact')" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs sm:text-sm px-3 py-1.5 rounded-lg transition flex items-center gap-2">
+        <i class="fa-solid fa-user-plus text-amber-400"></i> <span class="hidden sm:inline">+ Contacto</span>
+      </button>
+
+      <button onclick="openModal('modalCase')" class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold text-xs sm:text-sm px-3 py-1.5 rounded-lg shadow-lg shadow-amber-500/20 transition flex items-center gap-2">
+        <i class="fa-solid fa-folder-plus"></i> <span>+ Nuevo Caso</span>
+      </button>
+
+      <button onclick="toggleDataMenu()" class="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition text-sm relative" title="Opciones de Datos">
+        <i class="fa-solid fa-ellipsis-vertical"></i>
+      </button>
+      
+      <!-- Menú Desplegable de Respaldo y Firebase -->
+      <div id="dataMenu" class="hidden absolute right-4 top-14 w-60 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl py-2 z-50 text-xs text-slate-300">
+        <button onclick="exportData()" class="w-full text-left px-4 py-2 hover:bg-slate-800 flex items-center gap-2">
+          <i class="fa-solid fa-file-export text-amber-400"></i> Exportar Copia (JSON)
+        </button>
+        <button onclick="exportFirebaseData()" class="w-full text-left px-4 py-2 hover:bg-slate-800 flex items-center gap-2">
+          <i class="fa-solid fa-fire text-amber-500"></i> Exportar para Firebase (JSON)
+        </button>
+        <label class="w-full text-left px-4 py-2 hover:bg-slate-800 flex items-center gap-2 cursor-pointer">
+          <i class="fa-solid fa-file-import text-blue-400"></i> Importar Datos
+          <input type="file" id="importFileInput" accept=".json" class="hidden" onchange="importData(event)">
+        </label>
+        <div class="border-t border-slate-800 my-1"></div>
+        <button onclick="confirmClearData()" class="w-full text-left px-4 py-2 hover:bg-red-950/50 text-red-400 flex items-center gap-2">
+          <i class="fa-solid fa-trash-can"></i> Vaciar Todos los Datos
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- FILTRO DE FECHAS SECUNDARIO PARA PANTALLAS PEQUEÑAS / RANGO PERSONALIZADO -->
+  <div id="customDateContainer" class="bg-slate-900/90 border-b border-slate-800 px-4 py-2 flex flex-wrap items-center justify-between gap-2 text-xs z-10">
+    <div class="flex items-center gap-2 lg:hidden">
+      <i class="fa-solid fa-calendar-days text-amber-400"></i>
+      <span class="text-slate-400 font-medium">Lapso:</span>
+      <select id="globalTimeRangeMobile" onchange="syncAndChangeRange(this.value)" class="bg-slate-950 border border-slate-800 text-slate-200 rounded px-2 py-1">
+        <option value="all">Histórico Total</option>
+        <option value="week">Esta Semana</option>
+        <option value="month">Este Mes</option>
+        <option value="year">Este Año</option>
+        <option value="custom">Rango Personalizado</option>
+      </select>
+    </div>
+
+    <div id="customDateRangeInputs" class="hidden flex items-center gap-2 w-full sm:w-auto">
+      <span class="text-slate-400 text-[11px]">Desde:</span>
+      <input type="date" id="startDateFilter" onchange="renderAllViews()" class="bg-slate-950 border border-slate-800 rounded px-2 py-1 text-slate-200">
+      <span class="text-slate-400 text-[11px]">Hasta:</span>
+      <input type="date" id="endDateFilter" onchange="renderAllViews()" class="bg-slate-950 border border-slate-800 rounded px-2 py-1 text-slate-200">
+    </div>
+  </div>
+
+  <!-- CONTENEDOR PRINCIPAL DIVIDIDO -->
+  <div class="flex-1 flex flex-col md:flex-row relative overflow-hidden h-[calc(100vh-6.5rem)]">
+
+    <!-- ÁREA DEL MAPA MENTAL (GRAFO) -->
+    <main class="flex-1 relative bg-slate-950 flex flex-col min-h-[40vh] md:min-h-0">
+      <div id="network-container" class="w-full h-full absolute inset-0"></div>
+
+      <!-- Controles del Grafo -->
+      <div class="absolute bottom-4 left-4 z-10 flex flex-wrap gap-2 pointer-events-auto">
+        <button onclick="resetGraphView()" class="bg-slate-900/90 hover:bg-slate-800 text-slate-300 border border-slate-800 px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 shadow-lg backdrop-blur-md">
+          <i class="fa-solid fa-crosshairs text-amber-400"></i> Centrar Mapa
+        </button>
+        <button onclick="filterGraph('all')" class="bg-slate-900/90 hover:bg-slate-800 text-slate-300 border border-slate-800 px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 shadow-lg backdrop-blur-md">
+          <i class="fa-solid fa-layer-group text-blue-400"></i> Ver Todo
+        </button>
+      </div>
+
+      <!-- Leyenda del Grafo -->
+      <div class="absolute top-4 left-4 z-10 bg-slate-900/80 border border-slate-800/80 rounded-xl p-2.5 backdrop-blur-md text-xs space-y-1.5 shadow-xl hidden sm:block">
+        <div class="font-medium text-slate-400 text-[10px] uppercase tracking-wider mb-1">Leyenda</div>
+        <div class="flex items-center gap-2">
+          <span class="w-3 h-3 rounded-full bg-amber-500 inline-block"></span>
+          <span class="text-slate-300">Contacto / Referidor</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="w-3 h-3 rounded-full bg-blue-500 inline-block"></span>
+          <span class="text-slate-300">Caso (En Proceso / Pendiente)</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="w-3 h-3 rounded-full bg-emerald-500 inline-block"></span>
+          <span class="text-slate-300">Caso Exitoso / Pro Bono</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="w-3 h-3 rounded-full bg-rose-500 inline-block"></span>
+          <span class="text-slate-300">Caso Fallido / Archivado</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="w-3.5 h-0.5 bg-amber-400 inline-block"></span>
+          <span class="text-slate-300">Contacto refirió Contacto</span>
+        </div>
+      </div>
+    </main>
+
+    <!-- PANEL LATERAL DE DETALLES Y LISTAS -->
+    <aside id="sidebarPanel" class="w-full md:w-96 lg:w-[420px] bg-slate-900 border-t md:border-t-0 md:border-l border-slate-800 flex flex-col shrink-0 h-[60vh] md:h-full min-h-0 z-10 overflow-hidden">
+      
+      <!-- Navegación por Pestañas -->
+      <div class="flex border-b border-slate-800 bg-slate-950/50 shrink-0">
+        <button id="tabBtnDetails" onclick="switchTab('details')" class="flex-1 py-3 text-xs font-semibold uppercase tracking-wider border-b-2 border-amber-500 text-amber-400 flex items-center justify-center gap-2">
+          <i class="fa-solid fa-chart-pie"></i> Detalles / Métricas
+        </button>
+        <button id="tabBtnContacts" onclick="switchTab('contacts')" class="flex-1 py-3 text-xs font-semibold uppercase tracking-wider border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center justify-center gap-2">
+          <i class="fa-solid fa-address-book"></i> Contactos (<span id="contactCountBadge">0</span>)
+        </button>
+        <button id="tabBtnCases" onclick="switchTab('cases')" class="flex-1 py-3 text-xs font-semibold uppercase tracking-wider border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center justify-center gap-2">
+          <i class="fa-solid fa-briefcase"></i> Casos (<span id="caseCountBadge">0</span>)
+        </button>
+      </div>
+
+      <!-- CONTENEDOR DE PESTAÑAS -->
+      <div class="flex-1 overflow-y-auto min-h-0 p-4 pb-20 space-y-4">
+
+        <!-- TAB 1: DETALLES Y MÉTRICAS -->
+        <div id="tabDetails" class="space-y-4">
+          <div id="selectedDetailContent">
+            <!-- Se carga dinámicamente -->
+          </div>
+        </div>
+
+        <!-- TAB 2: LISTA DE CONTACTOS -->
+        <div id="tabContacts" class="hidden space-y-3">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Directorio de Referidores</h3>
+            <button onclick="openModal('modalContact')" class="text-xs text-amber-400 hover:underline flex items-center gap-1">
+              <i class="fa-solid fa-plus"></i> Nuevo
+            </button>
+          </div>
+          <div id="contactsList" class="space-y-2">
+            <!-- JS Render -->
+          </div>
+        </div>
+
+        <!-- TAB 3: LISTA DE CASOS EN ORDEN CRONOLÓGICO CON FILTROS COMBINADOS Y SCROLL -->
+        <div id="tabCases" class="hidden space-y-4">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Cronograma General de Casos</h3>
+            <button onclick="openModal('modalCase')" class="text-xs text-amber-400 hover:underline flex items-center gap-1">
+              <i class="fa-solid fa-plus"></i> Nuevo
+            </button>
+          </div>
+
+          <!-- Controles de Filtros Combinados -->
+          <div class="bg-slate-950/80 p-3 rounded-xl border border-slate-800 space-y-2 text-xs">
+            <div class="font-medium text-slate-300 flex items-center gap-1.5">
+              <i class="fa-solid fa-filter text-amber-400"></i> Filtros Combinados de Casos
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div>
+                <label class="block text-[10px] text-slate-400 mb-1">Temporalidad</label>
+                <select id="caseListTimeFilter" onchange="renderCasesList()" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-slate-200 focus:outline-none focus:border-amber-500">
+                  <option value="all">Histórico Total</option>
+                  <option value="week">Esta Semana</option>
+                  <option value="month">Este Mes</option>
+                  <option value="year">Este Año</option>
+                  <option value="custom">Rango Global</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-[10px] text-slate-400 mb-1">Estatus del Caso</label>
+                <select id="caseListStatusFilter" onchange="renderCasesList()" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-slate-200 focus:outline-none focus:border-amber-500">
+                  <option value="all">Todos los Estatus</option>
+                  <option value="Prospecto">Prospecto</option>
+                  <option value="Pendiente">Pendiente</option>
+                  <option value="En Proceso">En Proceso</option>
+                  <option value="Finalizado con Éxito">Finalizado con Éxito</option>
+                  <option value="Finalizado Fallido">Finalizado Fallido</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Contenedor con desplazamiento (scroll) -->
+          <div id="casesList" class="space-y-3 max-h-[calc(100vh-22rem)] overflow-y-auto pr-1">
+            <!-- JS Render -->
+          </div>
+        </div>
+
+      </div>
+    </aside>
+
+  </div>
+
+  <!-- MODAL: AGREGAR / EDITAR CONTACTO -->
+  <div id="modalContact" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop bg-slate-950/70">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden transform transition-all">
+      <div class="px-6 py-4 border-b border-slate-800 flex justify-between items-center bg-slate-950/40">
+        <h3 id="modalContactTitle" class="font-heading font-bold text-lg text-white flex items-center gap-2">
+          <i class="fa-solid fa-user-plus text-amber-400"></i> Nuevo Contacto
+        </h3>
+        <button onclick="closeModal('modalContact')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+      <form id="contactForm" onsubmit="handleContactSubmit(event)" class="p-6 space-y-4">
+        <input type="hidden" id="contactId">
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Nombre Completo *</label>
+          <input type="text" id="contactName" required placeholder="Ej. Óscar Molina" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500">
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1">Tipo de Contacto</label>
+            <select id="contactType" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500">
+              <option value="Cliente">Cliente</option>
+              <option value="Abogado">Abogado</option>
+              <option value="Intermediario">Intermediario</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1">Referido Por (Padre)</label>
+            <select id="contactParentReferrer" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500">
+              <option value="">-- Raíz / Ninguno --</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1">Teléfono</label>
+            <input type="text" id="contactPhone" placeholder="Ej. +58 414 1234567" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1">Email</label>
+            <input type="email" id="contactEmail" placeholder="correo@ejemplo.com" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500">
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Notas / Observaciones</label>
+          <textarea id="contactNotes" rows="2" placeholder="Ej. Amigo de la universidad, abogado civilista" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500"></textarea>
+        </div>
+        <div class="flex items-center justify-between pt-3 border-t border-slate-800">
+          <button type="button" id="btnDeleteContactInModal" onclick="deleteContactFromModal()" class="hidden px-3 py-2 rounded-xl text-xs font-medium text-red-400 hover:text-red-300 hover:bg-red-950/40 border border-red-900/30 transition">
+            <i class="fa-solid fa-trash-can mr-1"></i> Eliminar
+          </button>
+          <div class="flex space-x-2 ml-auto">
+            <button type="button" onclick="closeModal('modalContact')" class="px-4 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800">Cancelar</button>
+            <button type="submit" class="px-5 py-2 rounded-xl text-xs font-semibold bg-amber-500 hover:bg-amber-600 text-slate-950 shadow-lg shadow-amber-500/20">Guardar Contacto</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: AGREGAR / EDITAR CASO -->
+  <div id="modalCase" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop bg-slate-950/70">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden transform transition-all max-h-[90vh] flex flex-col">
+      <div class="px-6 py-4 border-b border-slate-800 flex justify-between items-center bg-slate-950/40 shrink-0">
+        <h3 id="modalCaseTitle" class="font-heading font-bold text-lg text-white flex items-center gap-2">
+          <i class="fa-solid fa-folder-plus text-amber-400"></i> Registrar Nuevo Caso
+        </h3>
+        <button onclick="closeModal('modalCase')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+      <form id="caseForm" onsubmit="handleCaseSubmit(event)" class="p-6 space-y-4 overflow-y-auto flex-1">
+        <input type="hidden" id="caseId">
+        
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Título del Caso / Expediente *</label>
+          <input type="text" id="caseName" required placeholder="Ej. Jean Luis Pavón Muñoz" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500">
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Referidor Principal *</label>
+          <select id="caseReferrer" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500">
+            <!-- Dinámico -->
+          </select>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1">Fecha Recepción del Caso *</label>
+            <input type="date" id="caseDate" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1">Estatus del Caso</label>
+            <select id="caseStatus" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500">
+              <option value="Prospecto">Prospecto</option>
+              <option value="Pendiente">Pendiente</option>
+              <option value="En Proceso">En Proceso</option>
+              <option value="Finalizado con Éxito">Finalizado con Éxito</option>
+              <option value="Finalizado Fallido">Finalizado Fallido</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1">Honorario Total ($)</label>
+            <input type="number" id="caseFee" min="0" step="0.01" value="0" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1">Comisión (Monto Fijo / Cifra Entera $) *</label>
+            <input type="number" id="caseCommOrig" min="0" step="0.01" value="150" placeholder="Ej. 100, 200, 300" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1">Fecha/Hora Alerta Local</label>
+            <input type="datetime-local" id="caseAlertTime" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1">Detalles de Alerta / Tarea</label>
+            <input type="text" id="caseAlertText" placeholder="Ej: Revisar escrito..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Notas y Detalles del Caso</label>
+          <textarea id="caseDetails" rows="3" placeholder="Observaciones, síntesis del asunto, estrategia..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500"></textarea>
+        </div>
+
+        <div class="flex items-center justify-between pt-3 border-t border-slate-800">
+          <button type="button" id="btnDeleteCaseInModal" onclick="deleteCaseFromModal()" class="hidden px-3 py-2 rounded-xl text-xs font-medium text-red-400 hover:text-red-300 hover:bg-red-950/40 border border-red-900/30 transition">
+            <i class="fa-solid fa-trash-can mr-1"></i> Eliminar
+          </button>
+          <div class="flex space-x-2 ml-auto">
+            <button type="button" onclick="closeModal('modalCase')" class="px-4 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800">Cancelar</button>
+            <button type="submit" class="px-5 py-2 rounded-xl text-xs font-semibold bg-amber-500 hover:bg-amber-600 text-slate-950 shadow-lg shadow-amber-500/20">Guardar Caso</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- SCRIPT Y CONEXIÓN FIREBASE + GESTOR DE ALERTAS LOCALES -->
+  <script>
+    // CONFIGURACIÓN DE FIREBASE SDK 8.10.0
+    const firebaseConfig = {
+      apiKey: "AIzaSyB_mCIiDNydYbspCYOEiBiXlOF3og_Va70",
+      authDomain: "privadosayuda-f01f1.firebaseapp.com",
+      databaseURL: "https://privadosayuda-f01f1-default-rtdb.firebaseio.com/",
+      projectId: "privadosayuda-f01f1",
+      storageBucket: "privadosayuda-f01f1.firebasestorage.app",
+      messagingSenderId: "137166482903",
+      appId: "1:137166482903:web:1221fa92f4ed9fa5902f92"
+    };
+
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
+    const db = firebase.database();
+
+    // DETERMINACIÓN DINÁMICA DEL DESPACHO ACTIVO DESDE LA SESIÓN DE LETS CONTROL
+    // Se obtiene el ID o propietario del despacho almacenado en localStorage por la app principal
+    function obtenerDespachoActivoId() {
+      // Intenta recuperar la sesión activa guardada por la app principal lexcontrol.html
+      const sesionActiva = localStorage.getItem('portal_sesion_usuario');
+      const adminPropietario = localStorage.getItem('portal_admin_propietario');
+      
+      // Si hay un despacho en curso definido, se asocia a su nodo; de lo contrario, se usa 'despacho_general'
+      const despachoId = adminPropietario || sesionActiva || 'despacho_general';
+      return despachoId;
+    }
+
+    const DESPACHO_ACTIVO_ID = obtenerDespachoActivoId();
+    // Ruta dinámica en Firebase vinculada al despacho principal de Lets Control
+    const FIREBASE_REF_PATH = `despachos_internos/${DESPACHO_ACTIVO_ID}/red_referidos`;
+
+    // REGISTRO DE SERVICE WORKER PARA CACHÉ Y NOTIFICACIONES NATIVAS EN ANDROID WEBVIEW
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        const swCode = `
+          self.addEventListener('install', (e) => { self.skipWaiting(); });
+          self.addEventListener('activate', (e) => { e.waitUntil(clients.claim()); });
+
+          self.addEventListener('fetch', (e) => {
+            e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
+          });
+        `;
+        const blob = new Blob([swCode], { type: 'application/javascript' });
+        const swUrl = URL.createObjectURL(blob);
+        navigator.serviceWorker.register(swUrl).catch(err => console.log('SW Error:', err));
+      });
+    }
+
+    // ESTADO GENERAL
+    let refContacts = [];
+    let refCases = [];
+    let networkInstance = null;
+    let selectedContactId = null;
+    let deferredPrompt = null;
+
+    window.onload = function() {
+      document.getElementById('caseDate').value = new Date().toISOString().slice(0,10);
+      document.getElementById('despachoSubTitle').textContent = `Despacho en curso: ${DESPACHO_ACTIVO_ID}`;
+      
+      setupPWA();
+      initFirebaseSync();
+      solicitarPermisosNotificacion();
+      iniciarGestorDeAlertasLocales();
+    };
+
+    // SOLICITUD DE PERMISO PARA NOTIFICACIONES LOCALES
+    function solicitarPermisosNotificacion() {
+      if ('Notification' in window && Notification.permission !== 'granted') {
+        Notification.requestPermission().then(permission => {
+          if (permission === 'granted') {
+            console.log('Permiso de notificaciones concedido.');
+          }
+        });
+      }
+    }
+
+    // GESTOR AUTÓNOMO DE ALERTAS LOCALES (VERIFICA CADA 30 SEGUNDOS)
+    function iniciarGestorDeAlertasLocales() {
+      setInterval(() => {
+        if (!('Notification' in window) || Notification.permission !== 'granted') return;
+        if (!refCases || refCases.length === 0) return;
+
+        const ahora = new Date();
+        let triggeredList = JSON.parse(localStorage.getItem('legalmind_triggered_alerts_' + DESPACHO_ACTIVO_ID) || '[]');
+        let actualizado = false;
+
+        refCases.forEach(kase => {
+          if (kase.alertTime) {
+            const fechaAlerta = new Date(kase.alertTime);
+            if (ahora >= fechaAlerta && !triggeredList.includes(kase.id)) {
+              const titulo = `Alerta de Caso: ${kase.title}`;
+              const cuerpo = kase.alertText || 'Tienes una tarea o vencimiento programado para este caso.';
+              
+              if ('serviceWorker' in navigator && navigator.serviceWorker.ready) {
+                navigator.serviceWorker.ready.then(reg => {
+                  reg.showNotification(titulo, {
+                    body: cuerpo,
+                    icon: 'https://placehold.co/192x192/f59e0b/030712?text=LM',
+                    badge: 'https://placehold.co/96x96/f59e0b/030712?text=LM',
+                    vibrate: [200, 100, 200]
+                  });
+                });
+              } else {
+                new Notification(titulo, { body: cuerpo, icon: 'https://placehold.co/192x192/f59e0b/030712?text=LM' });
+              }
+
+              triggeredList.push(kase.id);
+              actualizado = true;
+            }
+          }
+        });
+
+        if (actualizado) {
+          localStorage.setItem('legalmind_triggered_alerts_' + DESPACHO_ACTIVO_ID, JSON.stringify(triggeredList));
+        }
+      }, 30000);
+    }
+
+    function setupPWA() {
+      const manifestObj = {
+        name: "LegalMind Red de Referidos",
+        short_name: "LegalMind",
+        start_url: window.location.href,
+        display: "standalone",
+        background_color: "#030712",
+        theme_color: "#f59e0b",
+        icons: [
+          { src: "https://placehold.co/192x192/f59e0b/030712?text=LM", sizes: "192x192", type: "image/png" },
+          { src: "https://placehold.co/512x512/f59e0b/030712?text=LM", sizes: "512x512", type: "image/png" }
+        ]
+      };
+      const blob = new Blob([JSON.stringify(manifestObj)], { type: 'application/json' });
+      document.getElementById('pwa-manifest').setAttribute('href', URL.createObjectURL(blob));
+
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        document.getElementById('pwaInstallBtn').classList.remove('hidden');
+      });
+    }
+
+    function installPWA() {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then((choiceResult) => {
+          if (choiceResult.outcome === 'accepted') {
+            document.getElementById('pwaInstallBtn').classList.add('hidden');
+          }
+          deferredPrompt = null;
+        });
+      } else {
+        alert("Para instalar en tu dispositivo:\n\n- En Chrome / Edge: Presiona los 3 puntos del navegador y elige 'Agregar a la pantalla de inicio' o 'Instalar aplicación'.\n- En Safari (iOS): Presiona Compartir y elige 'Agregar a inicio'.");
+      }
+    }
+
+    // SINCRONIZACIÓN EN TIEMPO REAL CON FIREBASE EN EL NODO DEL DESPACHO ACTIVO
+    function initFirebaseSync() {
+      db.ref(FIREBASE_REF_PATH).on("value", snapshot => {
+        const data = snapshot.val() || {};
+
+        if (!data.contacts || Object.keys(data.contacts).length === 0) {
+          seedInitialData();
+          return;
+        }
+
+        refContacts = data.contacts ? Object.values(data.contacts) : [];
+        refCases = data.cases ? Object.values(data.cases) : [];
+
+        updateGraphData();
+        renderAllViews();
+      });
+    }
+
+    function seedInitialData() {
+      const today = new Date().toISOString().slice(0, 10);
+      const initialContacts = {
+        "c1": { id: "c1", name: "Dr. Charles Reyes", type: "Abogado", parentId: "", phone: "0424-7640846", email: "charles@iuris.com", notes: "Director Principal" },
+        "c2": { id: "c2", name: "Lic. María Rodríguez", type: "Intermediario", parentId: "c1", phone: "0414-1234567", email: "maria@gmail.com", notes: "Referidora activa San Cristóbal" }
+      };
+      const initialCases = {
+        "k1": { id: "k1", title: "Causa Penal CPO - V-18234981", referrerId: "c2", caseDate: today, status: "En Proceso", fee: 1500, commOrig: 150, details: "Revisión de medida y traslado" }
+      };
+      db.ref(FIREBASE_REF_PATH).set({ contacts: initialContacts, cases: initialCases });
+    }
+
+    function confirmClearData() {
+      if (confirm('¿Deseas vaciar por completo la base de datos de referidos de este despacho en Firebase?')) {
+        db.ref(FIREBASE_REF_PATH).remove().then(() => {
+          toggleDataMenu();
+        });
+      }
+    }
+
+    function toggleDataMenu() {
+      const menu = document.getElementById('dataMenu');
+      menu.classList.toggle('hidden');
+    }
+
+    function exportData() {
+      const exportObj = { contacts: refContacts, cases: refCases };
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportObj, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `legalmind_backup_${DESPACHO_ACTIVO_ID}_` + new Date().toISOString().slice(0,10) + ".json");
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+      toggleDataMenu();
+    }
+
+    function exportFirebaseData() {
+      exportData();
+    }
+
+    function importData(event) {
+      const fileReader = new FileReader();
+      if (event.target.files[0]) {
+        fileReader.readAsText(event.target.files[0], "UTF-8");
+        fileReader.onload = function(e) {
+          try {
+            const parsed = JSON.parse(e.target.result);
+            if (parsed && Array.isArray(parsed.contacts) && Array.isArray(parsed.cases)) {
+              const contactsObj = {};
+              const casesObj = {};
+              parsed.contacts.forEach(c => contactsObj[c.id] = c);
+              parsed.cases.forEach(k => casesObj[k.id] = k);
+
+              db.ref(FIREBASE_REF_PATH).set({ contacts: contactsObj, cases: casesObj }).then(() => {
+                alert('Datos importados y sincronizados correctamente en el despacho.');
+              });
+            } else {
+              alert('El archivo JSON no tiene un formato válido.');
+            }
+          } catch (err) {
+            alert('Error al leer el archivo JSON.');
+          }
+          toggleDataMenu();
+        };
+      }
+    }
+
+    // MANEJO DEL SELECTOR DE TIEMPO GLOBAL
+    function handleTimeRangeChange() {
+      const range = document.getElementById('globalTimeRange').value;
+      document.getElementById('globalTimeRangeMobile').value = range;
+      
+      const customContainer = document.getElementById('customDateRangeInputs');
+      if (range === 'custom') {
+        customContainer.classList.remove('hidden');
+      } else {
+        customContainer.classList.add('hidden');
+      }
+      updateGraphData();
+      renderAllViews();
+    }
+
+    function syncAndChangeRange(value) {
+      document.getElementById('globalTimeRange').value = value;
+      handleTimeRangeChange();
+    }
+
+    // OBTENER CASOS FILTRADOS SEGÚN EL LAPSO SELECCIONADO
+    function getFilteredCases() {
+      const range = document.getElementById('globalTimeRange').value;
+      if (range === 'all') return refCases;
+
+      const now = new Date();
+      let startDate = null;
+      let endDate = null;
+
+      if (range === 'week') {
+        const dayOfWeek = now.getDay() || 7;
+        startDate = new Date(now);
+        startDate.setDate(now.getDate() - dayOfWeek + 1);
+        startDate.setHours(0,0,0,0);
+      } else if (range === 'month') {
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      } else if (range === 'year') {
+        startDate = new Date(now.getFullYear(), 0, 1);
+      } else if (range === 'custom') {
+        const startVal = document.getElementById('startDateFilter').value;
+        const endVal = document.getElementById('endDateFilter').value;
+        if (startVal) startDate = new Date(startVal + 'T00:00:00');
+        if (endVal) {
+          endDate = new Date(endVal + 'T23:59:59');
+        }
+      }
+
+      return refCases.filter(k => {
+        const cDateStr = k.caseDate || (k.alertTime ? k.alertTime.slice(0, 10) : null);
+        if (!cDateStr) return true;
+        const cDate = new Date(cDateStr + 'T00:00:00');
+        
+        if (startDate && cDate < startDate) return false;
+        if (endDate && cDate > endDate) return false;
+        return true;
+      });
+    }
+
+    // MAPA INTERACTIVO (VIS.JS) ACTUALIZADO
+    function updateGraphData() {
+      const container = document.getElementById('network-container');
+      if (!container) return;
+
+      const nodesArray = [];
+      const edgesArray = [];
+      const filteredCasesList = getFilteredCases();
+      const filteredCaseIds = new Set(filteredCasesList.map(k => k.id));
+
+      const activeContactIds = new Set();
+      filteredCasesList.forEach(k => {
+        if (k.referrerId) {
+          activeContactIds.add(k.referrerId);
+          let curr = refContacts.find(c => c.id === k.referrerId);
+          while (curr && curr.parentId) {
+            activeContactIds.add(curr.parentId);
+            curr = refContacts.find(c => c.id === curr.parentId);
+          }
+        }
+      });
+
+      refContacts.forEach(c => {
+        const hasCasesInPeriod = refCases.filter(k => k.referrerId === c.id).some(k => filteredCaseIds.has(k.id));
+        const hasDescendantWithCases = getAllDescendants(c.id).some(desc => refCases.filter(k => k.referrerId === desc.id).some(k => filteredCaseIds.has(k.id)));
+
+        if (getFilteredCases().length > 0 && !hasCasesInPeriod && !hasDescendantWithCases && refCases.length > 0) {
+          return;
+        }
+
+        let color = '#3b82f6';
+        if (c.type === 'Abogado') color = '#10b981';
+        if (c.type === 'Intermediario') color = '#f59e0b';
+
+        const directChildren = refContacts.filter(child => child.parentId === c.id).length;
+
+        nodesArray.push({
+          id: c.id,
+          label: `${c.name}\n(${c.type})`,
+          shape: 'dot',
+          size: 18 + (directChildren * 3),
+          color: { background: color, border: '#fbbf24', highlight: { background: '#f59e0b', border: '#ffffff' } },
+          font: { color: '#ffffff', strokeWidth: 3, strokeColor: '#030712' },
+          title: `<b>Contacto:</b> ${c.name}<br>Tipo: ${c.type}`
+        });
+
+        if (c.parentId) {
+          edgesArray.push({
+            id: `e_c_${c.parentId}_${c.id}`,
+            from: c.parentId,
+            to: c.id,
+            dashes: true,
+            color: { color: '#fbbf24', highlight: '#f59e0b' },
+            label: 'Refirió'
+          });
+        }
+      });
+
+      filteredCasesList.forEach(k => {
+        if (k.referrerId) {
+          const caseNodeId = 'case_' + k.id;
+          const isSuccessful = k.status === 'Finalizado con Éxito';
+          const isFailed = k.status === 'Finalizado Fallido';
+          let bg = '#2563eb', border = '#60a5fa';
+          if (isSuccessful) { bg = '#059669'; border = '#34d399'; }
+          else if (isFailed) { bg = '#e11d48'; border = '#fda4af'; }
+
+          nodesArray.push({
+            id: caseNodeId,
+            label: `${k.title}\n($${k.fee || 0})`,
+            shape: 'diamond',
+            size: 16,
+            color: { background: bg, border: border, highlight: { background: bg, border: '#ffffff' } },
+            font: { color: '#e2e8f0', strokeWidth: 2, strokeColor: '#030712' },
+            title: `<b>Caso:</b> ${k.title}<br><b>Estatus:</b> ${k.status}<br><b>Honorario:</b> $${k.fee}`
+          });
+
+          edgesArray.push({
+            id: `e_${k.referrerId}_${caseNodeId}`,
+            from: k.referrerId,
+            to: caseNodeId,
+            dashes: false,
+            label: 'Caso'
+          });
+        }
+      });
+
+      const data = {
+        nodes: new vis.DataSet(nodesArray),
+        edges: new vis.DataSet(edgesArray)
+      };
+
+      const options = {
+        nodes: { font: { color: '#f8fafc', face: 'Inter', size: 13 }, borderWidth: 2, shadow: true },
+        edges: { width: 2, smooth: { type: 'continuous', roundness: 0.2 }, arrows: { to: { enabled: true, scaleFactor: 0.6 } } },
+        physics: {
+          barnesHut: { gravitationalConstant: -3500, centralGravity: 0.3, springLength: 120, springConstant: 0.04 },
+          solver: 'barnesHut',
+          timestep: 0.5
+        },
+        interaction: { hover: true, tooltipDelay: 200, zoomView: true, dragView: true }
+      };
+
+      if (networkInstance) {
+        networkInstance.destroy();
+      }
+
+      networkInstance = new vis.Network(container, data, options);
+
+      networkInstance.on("selectNode", function (params) {
+        if (params.nodes.length > 0) {
+          const clickedId = params.nodes[0];
+          if (clickedId.startsWith('case_')) {
+            const realCaseId = clickedId.replace('case_', '');
+            const cObj = refCases.find(item => item.id === realCaseId);
+            if (cObj && cObj.referrerId) {
+              selectedContactId = cObj.referrerId;
+              renderDetailsPanel();
+              switchTab('details');
+            }
+          } else {
+            selectedContactId = clickedId;
+            renderDetailsPanel();
+            switchTab('details');
+          }
+        }
+      });
+
+      networkInstance.on("deselectNode", function () {
+        selectedContactId = null;
+        renderDetailsPanel();
+      });
+    }
+
+    function resetGraphView() {
+      if (networkInstance) {
+        networkInstance.fit({ animation: { duration: 600, easingFunction: 'easeInOutQuad' } });
+      }
+    }
+
+    function filterGraph(type) {
+      selectedContactId = null;
+      if (networkInstance) networkInstance.unselectAll();
+      renderDetailsPanel();
+      resetGraphView();
+    }
+
+    function renderAllViews() {
+      updateGraphData();
+      renderDetailsPanel();
+      renderContactsList();
+      renderCasesList();
+      populateParentAndReferrerSelects();
+
+      const activeCases = getFilteredCases();
+      document.getElementById('contactCountBadge').textContent = refContacts.length;
+      document.getElementById('caseCountBadge').textContent = activeCases.length;
+    }
+
+    function getAllDescendants(parentId) {
+      let descendants = [];
+      const children = refContacts.filter(c => c.parentId === parentId);
+      children.forEach(child => {
+        descendants.push(child);
+        descendants = descendants.concat(getAllDescendants(child.id));
+      });
+      return descendants;
+    }
+
+    // PANEL DE DETALLES Y MÉTRICAS GENERALES DE LA RED
+    function renderDetailsPanel() {
+      const container = document.getElementById('selectedDetailContent');
+      const filteredCases = getFilteredCases();
+
+      if (selectedContactId) {
+        const contact = refContacts.find(c => c.id === selectedContactId);
+        if (!contact) {
+          renderGeneralOverview(container);
+          return;
+        }
+
+        const parentContact = refContacts.find(c => c.id === contact.parentId);
+        const childContacts = refContacts.filter(c => c.parentId === contact.id);
+        
+        const referredCasesDirect = filteredCases.filter(k => k.referrerId === contact.id);
+
+        const totalFeesDirect = referredCasesDirect.reduce((sum, k) => sum + (parseFloat(k.fee) || 0), 0);
+        const totalCommsDirect = referredCasesDirect.reduce((sum, k) => sum + (parseFloat(k.commOrig) || 0), 0);
+
+        const allDescendants = getAllDescendants(contact.id);
+        const allDescendantIds = allDescendants.map(d => d.id);
+        
+        const networkCases = filteredCases.filter(k => allDescendantIds.includes(k.referrerId));
+        const totalNetworkMoney = networkCases.reduce((sum, k) => sum + (parseFloat(k.fee) || 0), 0) + totalFeesDirect;
+
+        container.innerHTML = `
+          <div class="bg-slate-900 border border-amber-500/30 rounded-2xl p-4 shadow-xl space-y-4">
+            <div class="flex items-start justify-between">
+              <div>
+                <span class="text-[10px] uppercase font-bold tracking-wider text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full">${contact.type}</span>
+                <h2 class="font-heading font-bold text-xl text-white mt-1">${contact.name}</h2>
+                <p class="text-xs text-slate-400">${contact.phone || 'Sin teléfono'} • ${contact.email || 'Sin email'}</p>
+              </div>
+              <div class="flex items-center gap-1">
+                <button onclick="editContact('${contact.id}')" class="p-2 text-slate-400 hover:text-amber-400 rounded-lg hover:bg-slate-800 transition" title="Editar Contacto">
+                  <i class="fa-solid fa-pen-to-square"></i>
+                </button>
+                <button onclick="deleteContact('${contact.id}')" class="p-2 text-slate-400 hover:text-red-400 rounded-lg hover:bg-slate-800 transition" title="Eliminar Contacto">
+                  <i class="fa-solid fa-trash-can"></i>
+                </button>
+              </div>
+            </div>
+
+            ${parentContact ? `
+              <div class="bg-amber-500/10 border border-amber-500/30 rounded-xl p-2.5 text-xs text-slate-300">
+                <span class="text-[10px] uppercase text-amber-400 font-bold block">Referido por:</span>
+                <span class="font-semibold text-amber-300"><i class="fa-solid fa-user-tag mr-1"></i>${parentContact.name}</span>
+              </div>
+            ` : ''}
+
+            ${contact.notes ? `<p class="text-xs text-slate-300 italic bg-slate-950/60 p-2.5 rounded-xl border border-slate-800">${contact.notes}</p>` : ''}
+
+            <div>
+              <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center justify-between">
+                <span>Métricas en Período Seleccionado</span>
+                <i class="fa-solid fa-calculator text-amber-400"></i>
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800 text-center">
+                  <div class="text-[10px] text-slate-400">Contactos Directos</div>
+                  <div class="font-heading font-bold text-lg text-amber-400">${childContacts.length}</div>
+                </div>
+                <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800 text-center">
+                  <div class="text-[10px] text-slate-400">Casos Directos</div>
+                  <div class="font-heading font-bold text-lg text-blue-400">${referredCasesDirect.length}</div>
+                </div>
+                <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800 text-center">
+                  <div class="text-[10px] text-slate-400">Generado Despacho</div>
+                  <div class="font-heading font-bold text-base text-emerald-400">$${totalFeesDirect.toLocaleString()}</div>
+                </div>
+                <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800 text-center">
+                  <div class="text-[10px] text-slate-400">Comisión / Pago</div>
+                  <div class="font-heading font-bold text-base text-amber-300">$${totalCommsDirect.toLocaleString()}</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-1">
+              <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Generado por Toda su Red (Descendencia)</div>
+              <div class="flex items-center justify-between">
+                <span class="text-xs text-slate-300">${allDescendants.length} miembros en su red</span>
+                <span class="font-heading font-bold text-lg text-emerald-400">$${totalNetworkMoney.toLocaleString()}</span>
+              </div>
+            </div>
+
+            ${childContacts.length > 0 ? `
+              <div>
+                <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Contactos Directos Referidos (${childContacts.length}):</h4>
+                <div class="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                  ${childContacts.map(child => `
+                    <div onclick="selectNodeFromList('${child.id}')" class="bg-slate-950 p-2 rounded-xl border border-slate-800 hover:border-amber-500/50 cursor-pointer text-xs flex justify-between items-center">
+                      <span class="text-slate-200"><i class="fa-solid fa-user text-amber-400 mr-1"></i>${child.name}</span>
+                      <i class="fa-solid fa-chevron-right text-[10px] text-slate-500"></i>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            ` : ''}
+
+            <div class="pt-2">
+              <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Casos Referidos en Período:</h4>
+              ${referredCasesDirect.length === 0 ? '<p class="text-xs text-slate-500">No tiene casos registrados en este lapso.</p>' : `
+                <div class="space-y-2 max-h-48 overflow-y-auto pr-1">
+                  ${referredCasesDirect.map(k => `
+                    <div class="bg-slate-950 p-3 rounded-xl border border-slate-800/80 flex justify-between items-center">
+                      <div class="flex-1 pr-2">
+                        <div class="font-semibold text-xs text-white">${k.title}</div>
+                        <div class="text-[10px] text-slate-400">${k.status} • Recibido: ${k.caseDate || 'Sin fecha'}</div>
+                        ${k.alertTime ? `<div class="text-[10px] text-amber-400 mt-0.5"><i class="fa-solid fa-bell mr-1"></i>Alerta: ${k.alertTime.replace('T', ' ')}</div>` : ''}
+                      </div>
+                      <div class="text-right flex items-center gap-2">
+                        <div>
+                          <span class="text-xs font-bold text-blue-400">$${parseFloat(k.fee || 0).toLocaleString()}</span>
+                          <div class="text-[10px] text-amber-400">Com. $${parseFloat(k.commOrig || 0).toLocaleString()}</div>
+                        </div>
+                        <div class="flex items-center gap-1 border-l border-slate-800 pl-2">
+                          <button onclick="editCase('${k.id}')" class="p-1.5 text-slate-400 hover:text-amber-400 rounded transition" title="Editar Caso">
+                            <i class="fa-solid fa-pen-to-square"></i>
+                          </button>
+                          <button onclick="deleteCase('${k.id}')" class="p-1.5 text-slate-400 hover:text-red-400 rounded transition" title="Eliminar Caso">
+                            <i class="fa-solid fa-trash-can"></i>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  `).join('')}
+                </div>
+              `}
+            </div>
+
+            <button onclick="deleteContact('${contact.id}')" class="w-full text-center text-xs text-red-400 hover:text-red-300 hover:bg-red-950/30 py-2 rounded-xl border border-red-900/30 transition">
+              <i class="fa-solid fa-trash-can mr-1"></i> Eliminar Contacto
+            </button>
+          </div>
+        `;
+        return;
+      }
+
+      renderGeneralOverview(container);
+    }
+
+    // RENDERIZADO DE LAS 5 MÉTRICAS CLAVE EN EL RESUMEN GENERAL DE LA RED
+    function renderGeneralOverview(container) {
+      const filteredCases = getFilteredCases();
+      
+      const totalCases = filteredCases.length;
+      const totalReferrers = refContacts.length;
+      const totalGross = filteredCases.reduce((acc, k) => acc + (parseFloat(k.fee) || 0), 0);
+      const totalCommissions = filteredCases.reduce((acc, k) => acc + (parseFloat(k.commOrig) || 0), 0);
+      const totalNet = totalGross - totalCommissions;
+
+      container.innerHTML = `
+        <div class="space-y-4">
+          <div class="bg-gradient-to-br from-slate-900 to-slate-950 border border-slate-800 rounded-2xl p-4 shadow-xl space-y-4">
+            <div>
+              <h2 class="font-heading font-bold text-lg text-white mb-1 flex items-center gap-2">
+                <i class="fa-solid fa-chart-line text-amber-400"></i> Resumen General de la Red
+              </h2>
+              <p class="text-xs text-slate-400">Indicadores clave calculados en función del filtro de temporalidad activo.</p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div class="bg-slate-950/80 p-3 rounded-xl border border-slate-800">
+                <div class="text-[11px] text-slate-400">Dinero Bruto Despacho</div>
+                <div class="font-heading font-bold text-lg text-emerald-400 mt-1">$${totalGross.toLocaleString()}</div>
+              </div>
+              <div class="bg-slate-950/80 p-3 rounded-xl border border-slate-800">
+                <div class="text-[11px] text-slate-400">Pago en Comisiones</div>
+                <div class="font-heading font-bold text-lg text-amber-400 mt-1">$${totalCommissions.toLocaleString()}</div>
+              </div>
+              <div class="bg-slate-950/80 p-3 rounded-xl border border-slate-800 col-span-2">
+                <div class="text-[11px] text-slate-400">Neto para el Despacho</div>
+                <div class="font-heading font-bold text-xl text-blue-400 mt-1">$${totalNet.toLocaleString()}</div>
+              </div>
+              <div class="bg-slate-950/80 p-3 rounded-xl border border-slate-800">
+                <div class="text-[11px] text-slate-400">Total Referidores</div>
+                <div class="font-heading font-bold text-lg text-purple-400 mt-1">${totalReferrers}</div>
+              </div>
+              <div class="bg-slate-950/80 p-3 rounded-xl border border-slate-800">
+                <div class="text-[11px] text-slate-400">Total Casos (Lapso)</div>
+                <div class="font-heading font-bold text-lg text-cyan-400 mt-1">${totalCases}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // SECCIÓN DE CONTACTOS (DIRECTORIO / REFERIDORES)
+    function renderContactsList() {
+      const list = document.getElementById('contactsList');
+      if (refContacts.length === 0) {
+        list.innerHTML = '<p class="text-xs text-slate-500 py-4 text-center">No hay contactos registrados aún.</p>';
+        return;
+      }
+
+      const filteredCases = getFilteredCases();
+
+      list.innerHTML = refContacts.map(c => {
+        const count = filteredCases.filter(k => k.referrerId === c.id).length;
+        const isSelected = selectedContactId === c.id;
+
+        return `
+          <div class="p-3 rounded-xl border ${isSelected ? 'border-amber-500 bg-amber-500/10' : 'border-slate-800 bg-slate-950/70 hover:border-slate-700'} transition flex items-center justify-between">
+            <div onclick="selectNodeFromList('${c.id}')" class="flex items-center space-x-3 cursor-pointer flex-1">
+              <div class="w-8 h-8 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 font-bold text-xs shrink-0">
+                ${c.name.substring(0, 2).toUpperCase()}
+              </div>
+              <div>
+                <div class="text-xs font-semibold text-slate-200">${c.name}</div>
+                <div class="text-[10px] text-slate-400">${c.type} • ${c.phone || 'Sin número'}</div>
+              </div>
+            </div>
+            <div class="text-right flex items-center gap-2">
+              <span class="text-xs font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+                ${count} casos
+              </span>
+              <div class="flex items-center gap-1 border-l border-slate-800 pl-2">
+                <button onclick="editContact('${c.id}')" class="p-1 text-slate-400 hover:text-amber-400 rounded transition" title="Editar Contacto">
+                  <i class="fa-solid fa-pen-to-square"></i>
+                </button>
+                <button onclick="deleteContact('${c.id}')" class="p-1 text-slate-400 hover:text-red-400 rounded transition" title="Eliminar Contacto">
+                  <i class="fa-solid fa-trash-can"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // SECCIÓN DE CASOS CON FILTROS COMBINADOS (TEMPORALIDAD + ESTATUS) Y SCROLL
+    function renderCasesList() {
+      const list = document.getElementById('casesList');
+      if (!list) return;
+
+      const timeFilter = document.getElementById('caseListTimeFilter') ? document.getElementById('caseListTimeFilter').value : 'all';
+      const statusFilter = document.getElementById('caseListStatusFilter') ? document.getElementById('caseListStatusFilter').value : 'all';
+
+      let casesToFilter = refCases;
+      if (timeFilter === 'custom') {
+        casesToFilter = getFilteredCases();
+      } else if (timeFilter !== 'all') {
+        const now = new Date();
+        let startDate = null;
+        if (timeFilter === 'week') {
+          const dayOfWeek = now.getDay() || 7;
+          startDate = new Date(now);
+          startDate.setDate(now.getDate() - dayOfWeek + 1);
+          startDate.setHours(0,0,0,0);
+        } else if (timeFilter === 'month') {
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        } else if (timeFilter === 'year') {
+          startDate = new Date(now.getFullYear(), 0, 1);
+        }
+        casesToFilter = refCases.filter(k => {
+          const cDateStr = k.caseDate || (k.alertTime ? k.alertTime.slice(0, 10) : null);
+          if (!cDateStr) return true;
+          const cDate = new Date(cDateStr + 'T00:00:00');
+          return startDate ? cDate >= startDate : true;
+        });
+      } else {
+        casesToFilter = refCases;
+      }
+
+      const filteredCases = casesToFilter.filter(k => {
+        if (statusFilter !== 'all' && k.status !== statusFilter) return false;
+        return true;
+      });
+
+      const badgeElem = document.getElementById('caseCountBadge');
+      if (badgeElem) badgeElem.textContent = filteredCases.length;
+
+      if (filteredCases.length === 0) {
+        list.innerHTML = '<p class="text-xs text-slate-500 py-4 text-center">No hay casos que coincidan con los filtros seleccionados.</p>';
+        return;
+      }
+
+      list.innerHTML = filteredCases.map(k => {
+        const referrer = refContacts.find(c => c.id === k.referrerId);
+        const refName = referrer ? referrer.name : 'Desconocido';
+
+        return `
+          <div class="p-3 rounded-xl border border-slate-800 bg-slate-950/70 hover:border-slate-700 transition">
+            <div class="flex justify-between items-start">
+              <div onclick="selectNodeFromList('${k.referrerId}')" class="font-semibold text-xs text-slate-200 cursor-pointer hover:text-amber-400 flex-1">${k.title}</div>
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-bold text-blue-400">$${parseFloat(k.fee || 0).toLocaleString()}</span>
+                <div class="flex items-center gap-1 border-l border-slate-800 pl-2">
+                  <button onclick="editCase('${k.id}')" class="p-1 text-slate-400 hover:text-amber-400 rounded transition" title="Editar Caso">
+                    <i class="fa-solid fa-pen-to-square"></i>
+                  </button>
+                  <button onclick="deleteCase('${k.id}')" class="p-1 text-slate-400 hover:text-red-400 rounded transition" title="Eliminar Caso">
+                    <i class="fa-solid fa-trash-can"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="text-[11px] text-slate-400 mt-1 flex items-center gap-2 flex-wrap">
+              <span onclick="selectNodeFromList('${k.referrerId}')" class="cursor-pointer hover:text-amber-300"><i class="fa-solid fa-user-tag mr-1 text-amber-400"></i> ${refName}</span>
+              ${k.caseDate ? `<span class="text-[10px] text-slate-500">| Recibido: ${k.caseDate}</span>` : ''}
+              ${k.alertTime ? `<span class="text-[10px] text-amber-400 font-medium ml-auto"><i class="fa-solid fa-bell mr-1"></i>${k.alertTime.replace('T', ' ')}</span>` : ''}
+            </div>
+            <div class="flex items-center justify-between mt-2 pt-2 border-t border-slate-800/60 text-[10px]">
+              <span class="text-amber-400/90">${k.status}</span>
+              <span class="text-slate-400">Comisión: $${parseFloat(k.commOrig || 0).toLocaleString()}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function selectNodeFromList(nodeId) {
+      selectedContactId = nodeId;
+      if (networkInstance) {
+        networkInstance.selectNodes([nodeId]);
+      }
+      renderDetailsPanel();
+      switchTab('details');
+    }
+
+    function switchTab(tab) {
+      document.getElementById('tabDetails').classList.add('hidden');
+      document.getElementById('tabContacts').classList.add('hidden');
+      document.getElementById('tabCases').classList.add('hidden');
+
+      document.getElementById('tabBtnDetails').className = "flex-1 py-3 text-xs font-semibold uppercase tracking-wider border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center justify-center gap-2";
+      document.getElementById('tabBtnContacts').className = "flex-1 py-3 text-xs font-semibold uppercase tracking-wider border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center justify-center gap-2";
+      document.getElementById('tabBtnCases').className = "flex-1 py-3 text-xs font-semibold uppercase tracking-wider border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center justify-center gap-2";
+
+      if (tab === 'details') {
+        document.getElementById('tabDetails').classList.remove('hidden');
+        document.getElementById('tabBtnDetails').className = "flex-1 py-3 text-xs font-semibold uppercase tracking-wider border-b-2 border-amber-500 text-amber-400 flex items-center justify-center gap-2";
+      } else if (tab === 'contacts') {
+        document.getElementById('tabContacts').classList.remove('hidden');
+        document.getElementById('tabBtnContacts').className = "flex-1 py-3 text-xs font-semibold uppercase tracking-wider border-b-2 border-amber-500 text-amber-400 flex items-center justify-center gap-2";
+      } else if (tab === 'cases') {
+        document.getElementById('tabCases').classList.remove('hidden');
+        document.getElementById('tabBtnCases').className = "flex-1 py-3 text-xs font-semibold uppercase tracking-wider border-b-2 border-amber-500 text-amber-400 flex items-center justify-center gap-2";
+      }
+    }
+
+    function openModal(modalId) {
+      if (modalId === 'modalContact') populateParentAndReferrerSelects();
+      if (modalId === 'modalCase') {
+        populateParentAndReferrerSelects();
+        if (selectedContactId) {
+          document.getElementById('caseReferrer').value = selectedContactId;
+        }
+        if (!document.getElementById('caseDate').value) {
+          document.getElementById('caseDate').value = new Date().toISOString().slice(0,10);
+        }
+      }
+      document.getElementById(modalId).classList.remove('hidden');
+    }
+
+    function closeModal(modalId) {
+      document.getElementById(modalId).classList.add('hidden');
+      if (modalId === 'modalContact') {
+        document.getElementById('contactForm').reset();
+        document.getElementById('contactId').value = '';
+        document.getElementById('btnDeleteContactInModal').classList.add('hidden');
+        document.getElementById('modalContactTitle').innerHTML = '<i class="fa-solid fa-user-plus text-amber-400"></i> Nuevo Contacto';
+      } else if (modalId === 'modalCase') {
+        document.getElementById('caseForm').reset();
+        document.getElementById('caseId').value = '';
+        document.getElementById('caseDate').value = new Date().toISOString().slice(0,10);
+        document.getElementById('btnDeleteCaseInModal').classList.add('hidden');
+        document.getElementById('modalCaseTitle').innerHTML = '<i class="fa-solid fa-folder-plus text-amber-400"></i> Registrar Nuevo Caso';
+      }
+    }
+
+    function populateParentAndReferrerSelects(currentContactId = '') {
+      const selectParent = document.getElementById('contactParentReferrer');
+      const selectReferrer = document.getElementById('caseReferrer');
+
+      let parentOptions = '<option value="">-- Raíz / Ninguno --</option>';
+      let referrerOptions = '<option value="">-- Seleccionar Contacto --</option>';
+
+      refContacts.forEach(c => {
+        if (c.id !== currentContactId) {
+          parentOptions += `<option value="${c.id}">${c.name} (${c.type})</option>`;
+        }
+        referrerOptions += `<option value="${c.id}">${c.name} (${c.type})</option>`;
+      });
+
+      if (selectParent) selectParent.innerHTML = parentOptions;
+      if (selectReferrer) selectReferrer.innerHTML = referrerOptions;
+    }
+
+    // OPERACIONES CRUD EN FIREBASE (VINCULADAS AL DESPACHO ACTIVO)
+    function handleContactSubmit(e) {
+      e.preventDefault();
+      const id = document.getElementById('contactId').value || ('c_' + Date.now());
+      const name = document.getElementById('contactName').value.trim();
+      const type = document.getElementById('contactType').value;
+      const parentId = document.getElementById('contactParentReferrer').value;
+      const phone = document.getElementById('contactPhone').value.trim();
+      const email = document.getElementById('contactEmail').value.trim();
+      const notes = document.getElementById('contactNotes').value.trim();
+
+      if (!name) return;
+
+      const newContact = { id, name, type, parentId, phone, email, notes };
+
+      db.ref(`${FIREBASE_REF_PATH}/contacts/${id}`).set(newContact).then(() => {
+        closeModal('modalContact');
+      });
+    }
+
+    function editContact(id) {
+      const contact = refContacts.find(c => c.id === id);
+      if (!contact) return;
+
+      populateParentAndReferrerSelects(contact.id);
+
+      document.getElementById('contactId').value = contact.id;
+      document.getElementById('contactName').value = contact.name;
+      document.getElementById('contactType').value = contact.type || 'Cliente';
+      document.getElementById('contactParentReferrer').value = contact.parentId || '';
+      document.getElementById('contactPhone').value = contact.phone || '';
+      document.getElementById('contactEmail').value = contact.email || '';
+      document.getElementById('contactNotes').value = contact.notes || '';
+      
+      document.getElementById('btnDeleteContactInModal').classList.remove('hidden');
+      document.getElementById('modalContactTitle').innerHTML = '<i class="fa-solid fa-pen-to-square text-amber-400"></i> Editar Contacto';
+      openModal('modalContact');
+    }
+
+    function deleteContactFromModal() {
+      const id = document.getElementById('contactId').value;
+      if (id) {
+        deleteContact(id);
+        closeModal('modalContact');
+      }
+    }
+
+    function deleteContact(id) {
+      if (confirm('¿Estás seguro de eliminar este contacto?')) {
+        db.ref(`${FIREBASE_REF_PATH}/contacts/${id}`).remove().then(() => {
+          selectedContactId = null;
+          renderDetailsPanel();
+        });
+      }
+    }
+
+    function handleCaseSubmit(e) {
+      e.preventDefault();
+      const id = document.getElementById('caseId').value || ('k_' + Date.now());
+      const title = document.getElementById('caseName').value.trim();
+      const referrerId = document.getElementById('caseReferrer').value;
+      const caseDate = document.getElementById('caseDate').value;
+      const status = document.getElementById('caseStatus').value;
+      const fee = parseFloat(document.getElementById('caseFee').value) || 0;
+      const commOrig = parseFloat(document.getElementById('caseCommOrig').value) || 0;
+      const alertTime = document.getElementById('caseAlertTime').value;
+      const alertText = document.getElementById('caseAlertText').value.trim();
+      const details = document.getElementById('caseDetails').value.trim();
+
+      if (!title || !referrerId) return;
+
+      const newCase = { id, title, referrerId, caseDate, status, fee, commOrig, alertTime, alertText, details };
+
+      db.ref(`${FIREBASE_REF_PATH}/cases/${id}`).set(newCase).then(() => {
+        let triggeredList = JSON.parse(localStorage.getItem('legalmind_triggered_alerts_' + DESPACHO_ACTIVO_ID) || '[]');
+        triggeredList = triggeredList.filter(item => item !== id);
+        localStorage.setItem('legalmind_triggered_alerts_' + DESPACHO_ACTIVO_ID, JSON.stringify(triggeredList));
+
+        closeModal('modalCase');
+      });
+    }
+
+    function editCase(id) {
+      const kase = refCases.find(k => k.id === id);
+      if (!kase) return;
+
+      populateParentAndReferrerSelects();
+
+      document.getElementById('caseId').value = kase.id;
+      document.getElementById('caseName').value = kase.title;
+      document.getElementById('caseReferrer').value = kase.referrerId || '';
+      document.getElementById('caseDate').value = kase.caseDate || new Date().toISOString().slice(0,10);
+      document.getElementById('caseStatus').value = kase.status || 'En Proceso';
+      document.getElementById('caseFee').value = kase.fee || 0;
+      document.getElementById('caseCommOrig').value = kase.commOrig || 0;
+      document.getElementById('caseAlertTime').value = kase.alertTime || '';
+      document.getElementById('caseAlertText').value = kase.alertText || '';
+      document.getElementById('caseDetails').value = kase.details || '';
+
+      document.getElementById('btnDeleteCaseInModal').classList.remove('hidden');
+      document.getElementById('modalCaseTitle').innerHTML = '<i class="fa-solid fa-pen-to-square text-amber-400"></i> Editar Caso';
+      openModal('modalCase');
+    }
+
+    function deleteCaseFromModal() {
+      const id = document.getElementById('caseId').value;
+      if (id) {
+        deleteCase(id);
+        closeModal('modalCase');
+      }
+    }
+
+    function deleteCase(id) {
+      if (confirm('¿Estás seguro de eliminar este caso?')) {
+        db.ref(`${FIREBASE_REF_PATH}/cases/${id}`).remove();
+      }
+    }
+  </script>
+</body>
+</html>

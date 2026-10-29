@@ -1,0 +1,1250 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portal Jurídico - Gestión Interna de Despachos</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-storage.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <style>
+        :root { --primary: #1a237e; --secondary: #c62828; --accent: #2e7d32; --bg: #f0f2f5; --white: #ffffff; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 0; color: #333; }
+        
+        header {
+            background: linear-gradient(135deg, #1a237e, #283593);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+        header h1 { margin: 0; font-size: 1.6em; letter-spacing: 1px; }
+        header p { font-size: 0.9em; margin: 5px 0 0 0; opacity: 0.85; }
+
+        .container { max-width: 1200px; margin: 15px auto; padding: 10px; }
+        .card { background: var(--white); border-radius: 12px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        
+        .input-field { width: 100%; padding: 12px; margin-bottom: 12px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 14px; }
+        .btn-principal { background: var(--primary); color: white; border: none; width: 100%; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: background 0.3s; }
+        .btn-principal:hover { background: #303f9f; }
+        .btn-admin-guardar { background: var(--accent); color: white; border: none; width: 100%; padding: 14px; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 10px; font-size: 1em; }
+        .btn-admin-guardar:hover { background: #1b5e20; }
+        .btn-regresar { background: #78909c; color: white; border: none; padding: 8px 15px; border-radius: 6px; cursor: pointer; font-size: 0.9em; float: right; }
+
+        #seccion-login { display: block; }
+        #seccion-portal { display: none; }
+        
+        .tab-menu { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; border-bottom: 2px solid #ddd; padding-bottom: 10px; }
+        .tab-btn { background: #e0e0e0; border: none; padding: 12px 18px; border-radius: 8px; font-weight: bold; cursor: pointer; color: #555; flex-grow: 1; text-align: center; font-size: 0.9em; }
+        .tab-btn:hover { background: #d5d5d5; }
+        .tab-btn.active { background: var(--primary); color: white; }
+        
+        #btn-tab-admin { background: #ffecb3; color: #b71c1c; display: none; border: 1px solid #ffe082; }
+        #btn-tab-admin.active { background: #b71c1c; color: white; }
+
+        .tab-content { display: none; padding: 18px; background: #f8f9fa; border-radius: 8px; border: 1px solid #eee; }
+        .tab-content.active { display: block; }
+        
+        .header-sesion { border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;}
+        .info-bloque { background: white; padding: 15px; border-radius: 8px; border-left: 4px solid var(--primary); margin-bottom: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
+        .info-bloque p { margin: 6px 0; font-size: 0.95em; }
+
+        .expediente-card { background: #fff; border: 1px solid #c5cae9; padding: 18px; border-radius: 8px; margin-bottom: 15px; position: relative; }
+        .btn-eliminar-exp { background: var(--secondary); color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; float: right; font-size: 0.85em; font-weight: bold; }
+        .seccion-form { background: #ffffff; border: 1px solid #e0e0e0; padding: 18px; border-radius: 8px; margin-bottom: 15px; }
+        .seccion-form h5 { margin-top: 0; color: var(--primary); border-bottom: 1px solid #eee; padding-bottom: 8px; font-size: 1.05em; }
+        .btn-secundario { background: #3949ab; color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 0.9em; }
+        .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+        
+        /* Contenedor dinámico fluido y adaptable */
+        .sub-seccion-dinamica { background: #fdfdfd; border: 1px dashed #b0bec5; padding: 12px; border-radius: 6px; margin-top: 10px; margin-bottom: 10px; }
+        .item-campo-dinamico { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; background: #ffffff; padding: 10px; border: 1px solid #cfd8dc; border-radius: 8px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.03); }
+        .item-campo-dinamico input, .item-campo-dinamico select { margin-bottom: 0 !important; flex: 1 1 180px; min-width: 0; }
+        .btn-borrar-campo { background: var(--secondary); color: white; border: none; padding: 10px 14px; border-radius: 6px; cursor: pointer; font-weight: bold; flex: 0 0 auto; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>PORTAL DE GESTIÓN JURÍDICA</h1>
+    <p>Sistema Exclusivo de Uso Interno para Despachos</p>
+</header>
+
+<div class="container">
+
+    <!-- ================= PANTALLA DE LOGIN ================= -->
+    <div id="seccion-login" class="card">
+        <div id="vista-form-login">
+            <h3 style="color: var(--primary); margin-top: 0; text-align: center;">🔐 Acceso Interno al Sistema</h3>
+            <p style="text-align: center; font-size: 0.9em; color: #666; margin-bottom: 20px;">Ingrese sus credenciales de Superusuario, Administrador de Despacho o Subadministrador</p>
+            
+            <input type="text" id="login-usuario" class="input-field" placeholder="Nombre de Usuario">
+            <input type="password" id="login-clave" class="input-field" placeholder="Contraseña">
+            <button onclick="intentarIngresoPortal()" class="btn-principal">INGRESAR AL SISTEMA</button>
+        </div>
+    </div>
+
+    <!-- ================= PORTAL PRINCIPAL CON PESTAÑAS ================= -->
+    <div id="seccion-portal" class="card">
+        <div class="header-sesion">
+            <div>
+                <h3 id="titulo-usuario" style="margin:0; color: var(--primary);">Despacho: --</h3>
+                <small style="color: #666;" id="subtitulo-rol">Rol: --</small>
+            </div>
+            <button onclick="cerrarSesion()" class="btn-regresar">Cerrar Sesión</button>
+        </div>
+
+        <!-- Menú de Pestañas dinámico según permisos -->
+        <div class="tab-menu" id="menu-pestanas-portal">
+            <button class="tab-btn active" id="btn-tab-info" onclick="cambiarPestaña(event, 'tab-info')">📁 1. Información General</button>
+            <button class="tab-btn" id="btn-tab-monitoreo" onclick="cambiarPestaña(event, 'tab-monitoreo')">📊 2. Seguimiento y Control</button>
+            <button class="tab-btn" id="btn-tab-aplicaciones" onclick="cambiarPestaña(event, 'tab-aplicaciones')">🛠️ 3. Aplicaciones</button>
+            <button class="tab-btn" id="btn-tab-admin" onclick="cambiarPestaña(event, 'tab-admin')">⚙️ Panel Admin</button>
+        </div>
+
+        <!-- ================= PESTAÑA 1: INFORMACIÓN GENERAL Y BUSCADOR INTELIGENTE ================= -->
+        <div id="tab-info" class="tab-content active">
+            <div id="contenedor-buscador-general" class="seccion-form" style="background: #e3f2fd; border-color: #90caf9; margin-bottom: 20px;">
+                <h5 style="color: #0d47a1; margin-bottom: 8px;">🔍 Buscador Inteligente de Clientes y Expedientes</h5>
+                <p style="font-size: 0.85em; color: #555; margin-bottom: 10px;">Filtre escribiendo a partir de las 3 primeras letras o seleccione directamente del menú desplegable:</p>
+                <div class="grid-2" style="gap: 10px;">
+                    <input type="text" id="input-busqueda-inteligente" class="input-field" placeholder="Escriba al menos 3 letras..." oninput="filtrarClientesSmart(this.value)" style="margin-bottom:0;">
+                    <select id="select-cliente-buscador" class="input-field" onchange="seleccionarClienteGlobal(this.value)" style="margin-bottom:0;">
+                        <option value="">-- Seleccionar cliente --</option>
+                    </select>
+                </div>
+            </div>
+
+            <h4 style="color:var(--primary); margin-top:0;">📋 Información General del Caso</h4>
+            <div id="contenido-info-general">
+                <p style="color:#777;">Seleccione o cargue un expediente en el buscador superior...</p>
+            </div>
+        </div>
+
+        <!-- ================= PESTAÑA 2: SEGUIMIENTO Y CONTROL ================= -->
+        <div id="tab-monitoreo" class="tab-content">
+            <h4 style="color:var(--primary); margin-top:0;">📊 Seguimiento y Control del Expediente</h4>
+            <p style="font-size:0.9em; color:#666; margin-bottom: 15px;">Historial de actas, notas, reportes y documentos adjuntos del caso.</p>
+            
+            <div style="background: #fff; padding: 15px; border-radius: 8px; border: 1px solid #c5cae9; box-shadow: 0 2px 5px rgba(0,0,0,0.02);">
+                <h5 style="margin-top: 0; color: var(--primary); border-bottom: 1px solid #eee; padding-bottom: 8px;">📋 Historial de Actuaciones y Archivos Adjuntos (PDF, Word, Imágenes)</h5>
+                <div id="contenedor-historial-notas" style="max-height: 500px; overflow-y: auto; margin-top: 10px; font-size: 0.9em;">
+                    <em style="color: #666;">Seleccione un expediente para ver su historial...</em>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= PESTAÑA 3: APLICACIONES ================= -->
+        <div id="tab-aplicaciones" class="tab-content">
+            <h4 style="color:var(--primary); margin-top:0;">🛠️ Aplicaciones y Herramientas Útiles</h4>
+            <p style="font-size:0.9em; color:#666; margin-bottom: 20px;">Acceda a los módulos interactivos y herramientas especializadas del sistema.</p>
+            
+            <div style="display: grid; gap: 15px;">
+                <!-- a) Aplicación de Referidos -->
+                <div class="seccion-form" style="background: #fff8e1; border-color: #f59e0b; text-align: center;">
+                    <h5 style="color: #d97706; margin-bottom: 8px;">🚀 Aplicación de Referidos (LegalMind)</h5>
+                    <p style="font-size: 0.85em; color: #555; margin-bottom: 10px;">Módulo interactivo de referidos y red visual de contactos legal.</p>
+                    <a href="Referidos.html" target="_blank" class="btn-principal" style="background: #f59e0b; color: #030712; display: inline-block; text-decoration: none; padding: 12px 20px; font-weight: bold; border-radius: 8px;">
+                        🌐 Abrir Aplicación de Referidos (LegalMind)
+                    </a>
+                </div>
+
+                <!-- b) Aplicación de Lazos y Cómputos (Linetime_3.html) -->
+                <div class="seccion-form" style="background: #e8f5e9; border-color: #a5d6a7; text-align: center;">
+                    <h5 style="color: #2e7d32; margin-bottom: 8px;">⚖️ Aplicación de Lazos Procesales y Cómputos</h5>
+                    <p style="font-size: 0.85em; color: #555; margin-bottom: 10px;">Cronograma interactivo y cálculo automatizado de lapsos procesales y penas.</p>
+                    <a href="Linetime.html" target="_blank" class="btn-principal" style="background: #2e7d32; color: #ffffff; display: inline-block; text-decoration: none; padding: 12px 20px; font-weight: bold; border-radius: 8px;">
+                        📊 Abrir Aplicación de Lazos Procesales
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= PANEL DE ADMINISTRADOR ================= -->
+        <div id="tab-admin" class="tab-content">
+            <h4 style="color:#b71c1c; margin-top:0;">⚙️ Panel de Administración del Despacho</h4>
+            <p style="font-size:0.9em; color:#666; margin-bottom: 20px;">Gestión interna de expedientes de clientes, subadministradores y subida de archivos.</p>
+
+            <!-- SECCIÓN EXCLUSIVA PARA EL ADMINISTRADOR DEL DESPACHO: CAMBIAR CREDENCIALES -->
+            <div id="seccion-cambiar-credenciales-admin" class="seccion-form" style="display: none; background: #fff3e0; border-color: #ffb74d;">
+                <h5 style="color: #e65100;">🔑 Cambiar Usuario y Contraseña del Despacho</h5>
+                <p style="font-size: 0.85em; color: #555; margin-bottom: 10px;">Módulo exclusivo para el Administrador del Despacho. Actualice sus credenciales de acceso al sistema.</p>
+                
+                <input type="text" id="admin-nuevo-usuario" class="input-field" placeholder="Nuevo Nombre de Usuario del Despacho">
+                <input type="password" id="admin-nueva-clave" class="input-field" placeholder="Nueva Contraseña del Despacho">
+
+                <button type="button" onclick="actualizarCredencialesDespacho()" style="background: #ef6c00; color: white; padding: 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%;">
+                    🔒 Actualizar Credenciales del Despacho
+                </button>
+            </div>
+
+            <!-- SECCIÓN EXCLUSIVA PARA EL SUPERUSUARIO CHARLES: CREAR DESPACHOS PRINCIPALES -->
+            <div id="seccion-superadmin-charles" class="seccion-form" style="display: none; background: #e0f2f1; border-color: #80cbc4;">
+                <h5 style="color: #004d40;">👑 Módulo de Superusuario Charles: Registrar Nuevo Despacho</h5>
+                <p style="font-size: 0.85em; color: #004d40; margin-bottom: 10px;">Cree nuevas cuentas independientes para despachos jurídicos y asígnele la clave con la que accederán al sistema.</p>
+                
+                <input type="text" id="su-usuario" class="input-field" placeholder="Usuario para el Despacho (Ej: despacho_valencia)">
+                <input type="password" id="su-clave" class="input-field" placeholder="Contraseña asignada al Despacho">
+                <input type="text" id="su-nombre" class="input-field" placeholder="Nombre completo del Despacho / Bufete">
+                <input type="text" id="su-cedula" class="input-field" placeholder="RIF o Cédula del Despacho">
+                <input type="text" id="su-tel" class="input-field" placeholder="Teléfono de contacto">
+
+                <button type="button" onclick="crearDespachoDesdeSuperadmin()" style="background: #00695c; color: white; padding: 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%;">
+                    🏛️ Registrar Despacho Principal y Activar Acceso
+                </button>
+            </div>
+
+            <!-- CREAR SUBADMINISTRADOR CON PERMISOS PERSONALIZADOS -->
+            <div class="seccion-form" style="background: #f3e5f5; border-color: #ce93d8;">
+                <h5 style="color: #6a1b9a;">👥 Crear Subadministrador de Despacho y Asignar Permisos</h5>
+                <p style="font-size: 0.85em; color: #555; margin-bottom: 10px;">Los subadministradores operan internamente en el despacho y NO figuran como clientes en los listados de expedientes. No tienen acceso a cambiar usuario/clave del despacho.</p>
+                
+                <input type="text" id="sub-usuario" class="input-field" placeholder="Usuario para el Subadministrador">
+                <input type="password" id="sub-clave" class="input-field" placeholder="Contraseña de acceso">
+                <input type="text" id="sub-nombre" class="input-field" placeholder="Nombre completo del abogado / subadmin">
+
+                <label style="font-size:0.85em; font-weight:bold; display:block; margin-bottom:8px;">Nivel de Autorización / Acceso a Módulos y Pestañas:</label>
+                <div style="background: white; padding: 10px; border-radius: 6px; border: 1px solid #ddd; margin-bottom: 12px; display: flex; flex-direction: column; gap: 6px;">
+                    <label><input type="checkbox" id="permiso-todo" onchange="alternarPermisosGlobales(this)"> <b>⭐ Poder Absoluto a Todo (Acceso Total a Módulos)</b></label>
+                    <hr style="border:0; border-top:1px solid #eee; margin:4px 0;">
+                    <label><input type="checkbox" class="chk-permiso" value="tab-info" checked> Pestaña 1: Información General y Buscador</label>
+                    <label><input type="checkbox" class="chk-permiso" value="tab-monitoreo" checked> Pestaña 2: Seguimiento y Control</label>
+                    <label><input type="checkbox" class="chk-permiso" value="tab-aplicaciones" checked> Pestaña 3: Aplicaciones (Referidos, Lazos Procesales)</label>
+                    <label><input type="checkbox" class="chk-permiso" value="tab-admin"> Pestaña 4: Panel Admin (Crear clientes y otros subadmins)</label>
+                </div>
+
+                <button type="button" onclick="guardarSubAdministrador()" style="background: #6a1b9a; color: white; padding: 10px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%;">
+                    💾 Registrar Subadministrador con Permisos Seleccionados
+                </button>
+            </div>
+
+            <!-- Cargar Cliente Existente para Modificar -->
+            <div class="seccion-form" style="background: #e3f2fd; border-color: #90caf9;">
+                <h5 style="color: #0d47a1;">🔄 Cargar Cliente / Expediente Existente para Modificar</h5>
+                <label style="font-size:0.85em; font-weight:bold;">Seleccione un expediente de cliente registrado en su despacho:</label>
+                <div style="display: flex; gap: 8px;">
+                    <select id="select-cargar-cliente" class="input-field" onchange="seleccionarClienteGlobal(this.value)" style="margin-bottom:0;">
+                        <option value="">-- Nuevo expediente de cliente (Limpiar campos) --</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Subida de Archivos Optimizada -->
+            <div class="seccion-form" style="background: #fff8e1; border-color: #ffe082;">
+                <h5 style="color: #f57f17;">📎 Subir Archivos (PDF, Word .doc/.docx, Imágenes) y Nota</h5>
+                <label style="font-size: 0.85em; font-weight: bold;">Seleccionar archivo (PDF, Word o Imagen):</label>
+                <input type="file" id="input-archivo-adjunto" accept=".pdf,.doc,.docx,image/*" class="input-field" style="background: white;">
+
+                <label style="font-size: 0.85em; font-weight: bold;">Nota relacionada con el archivo o actuación:</label>
+                <textarea id="input-nota-archivo" class="input-field" placeholder="Escribe la descripción de la actuación..." style="height: 60px; resize: vertical;"></textarea>
+
+                <button type="button" onclick="subirArchivoYGuardarNota()" style="background-color: #f57f17; color: white; padding: 10px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%;">
+                    💾 Subir Archivo y Publicar en Seguimiento
+                </button>
+            </div>
+
+            <!-- DATOS GENERALES DEL CLIENTE (Con Campos Dinámicos Estilizados) -->
+            <div class="seccion-form">
+                <h5>1. Datos Generales del Cliente</h5>
+                <div class="grid-2">
+                    <div>
+                        <label style="font-size:0.8em; font-weight:bold;">Fecha de Recepción:</label>
+                        <input type="date" id="adm-fecha-recepcion" class="input-field">
+                    </div>
+                    <div>
+                        <label style="font-size:0.8em; font-weight:bold;">Abogado Asignado:</label>
+                        <select id="adm-abogado" class="input-field">
+                            <option value="Abogado Titular del Despacho">Abogado Titular del Despacho</option>
+                            <option value="Abogado Asociado del Despacho">Abogado Asociado del Despacho</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <input type="text" id="adm-nombre-cliente" class="input-field" placeholder="Nombre completo del cliente">
+                <input type="text" id="adm-cedula-cliente" class="input-field" placeholder="Cédula de Identidad o RIF">
+                <input type="text" id="adm-dir-cliente" class="input-field" placeholder="Dirección del cliente">
+                <input type="text" id="adm-tel-cliente" class="input-field" placeholder="Teléfono de contacto">
+
+                <!-- Apartado Dinámico en Datos del Cliente -->
+                <div style="margin-top: 15px; border-top: 1px dashed #ccc; padding-top: 12px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <label style="font-size:0.85em; font-weight:bold; color:var(--primary);">➕ Datos Adicionales / Personalizados del Cliente (Opcional):</label>
+                        <button type="button" onclick="agregarCampoPersonalizadoCliente()" class="btn-secundario" style="padding: 6px 12px; font-size: 0.8em;">➕ Agregar Campo al Cliente</button>
+                    </div>
+                    <div id="contenedor-campos-cliente-dinamicos"></div>
+                </div>
+            </div>
+
+            <!-- EXPEDIENTES DINÁMICOS Y MULTIMATERIA -->
+            <div class="seccion-form">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <h5 style="margin:0; border:none;">2. Expedientes Dinámicos y Multimateria</h5>
+                    <button type="button" onclick="agregarCampoExpediente()" class="btn-secundario">➕ Agregar Otro Expediente</button>
+                </div>
+                <div id="contenedor-expedientes-dinamicos"></div>
+            </div>
+
+            <button onclick="guardarExpedienteCompleto()" class="btn-admin-guardar">💾 GUARDAR / ACTUALIZAR EXPEDIENTE EN BASE DE DATOS</button>
+            
+            <div style="margin-top: 30px;">
+                <h5 style="color:#333; margin-bottom: 10px;">📋 Personal Interno (Subadministradores) y Clientes Registrados</h5>
+                <div id="lista-cuentas-admin" style="max-height: 250px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; border-radius: 8px; background:white;"></div>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+
+<script>
+    const firebaseConfig = {
+        apiKey: "AIzaSyB_mCIiDNydYbspCYOEiBiXlOF3og_Va70",
+        authDomain: "privadosayuda-f01f1.firebaseapp.com",
+        databaseURL: "https://privadosayuda-f01f1-default-rtdb.firebaseio.com/",
+        projectId: "privadosayuda-f01f1",
+        storageBucket: "privadosayuda-f01f1.firebasestorage.app",
+        messagingSenderId: "137166482903",
+        appId: "1:137166482903:web:1221fa92f4ed9fa5902f92"
+    };
+
+    if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
+    const db = firebase.database();
+
+    // SUPERUSUARIO CHARLES Y ADMINISTRACIÓN
+    const SUPERUSER_CHARLES = "charles";
+    const ADMIN_TEMPORAL_USER = "admin";
+    const ADMIN_TEMPORAL_CLAVE = "185576";
+    let listaClientesCache = {};
+
+    // --- MÓDULO DE ENCRIPTACIÓN P2P CORREGIDO Y BLINDADO ---
+    const SECRET_KEY = "IURIS_P2P_SECURE_SALT_2026";
+    
+    function cifrarP2P(data) {
+        if (data === null || data === undefined) return "";
+        try {
+            const jsonStr = (typeof data === 'object') ? JSON.stringify(data) : String(data);
+            let encoded = encodeURIComponent(jsonStr).split('').map((char, index) => {
+                return String.fromCharCode(char.charCodeAt(0) ^ SECRET_KEY.charCodeAt(index % SECRET_KEY.length));
+            }).join('');
+            return "P2P#" + btoa(encoded);
+        } catch(e) {
+            console.error("Error al cifrar P2P:", e);
+            return data;
+        }
+    }
+
+    function descifrarP2P(textoCifrado) {
+        if (!textoCifrado || typeof textoCifrado !== 'string' || !textoCifrado.startsWith("P2P#")) {
+            return textoCifrado;
+        }
+        try {
+            const rawB64 = atob(textoCifrado.replace("P2P#", ""));
+            let decoded = rawB64.split('').map((char, index) => {
+                return String.fromCharCode(char.charCodeAt(0) ^ SECRET_KEY.charCodeAt(index % SECRET_KEY.length));
+            }).join('');
+            const originalStr = decodeURIComponent(decoded);
+            try {
+                return JSON.parse(originalStr);
+            } catch(err) {
+                return originalStr;
+            }
+        } catch(e) {
+            console.error("Error al descifrar P2P:", e);
+            return textoCifrado;
+        }
+    }
+
+    const SecureStorage = {
+        setItem: function(key, value) {
+            const dataEnc = cifrarP2P(value);
+            localStorage.setItem(key, dataEnc);
+        },
+        getItem: function(key) {
+            const item = localStorage.getItem(key);
+            if (!item) return null;
+            return descifrarP2P(item);
+        },
+        removeItem: function(key) {
+            localStorage.removeItem(key);
+        }
+    };
+
+    window.onload = () => {
+        const sesionActiva = SecureStorage.getItem('portal_sesion_usuario');
+        if (sesionActiva) {
+            verificarYEntrarSesion(sesionActiva);
+        } else {
+            agregarCampoExpediente();
+        }
+        cargarCacheClientesGlobal();
+    };
+
+    function crearDespachoDesdeSuperadmin() {
+        const usuario = document.getElementById('su-usuario').value.trim();
+        const clave = document.getElementById('su-clave').value.trim();
+        const nombre = document.getElementById('su-nombre').value.trim();
+        const cedula = document.getElementById('su-cedula').value.trim();
+        const tel = document.getElementById('su-tel').value.trim();
+
+        if (!usuario || !clave || !nombre) {
+            alert("Por favor, ingrese al menos el usuario, clave y nombre del despacho.");
+            return;
+        }
+
+        db.ref("despachos_internos/" + usuario).once("value", snapshot => {
+            if (snapshot.exists()) {
+                alert("El usuario de despacho ya existe. Por favor elija otro.");
+            } else {
+                const nuevoDespacho = {
+                    usuario: usuario,
+                    clave: clave,
+                    rol: "admin_principal", 
+                    adminPropietario: usuario,
+                    nombreDespacho: nombre,
+                    cedulaRif: cedula,
+                    telefono: tel,
+                    permisos: ["tab-info", "tab-monitoreo", "tab-aplicaciones", "tab-admin"],
+                    tipoCuenta: "despacho"
+                };
+
+                db.ref("despachos_internos/" + usuario).set(cifrarP2P(nuevoDespacho)).then(() => {
+                    alert(`¡Despacho '${nombre}' registrado con éxito! El usuario es: ${usuario}`);
+                    document.getElementById('su-usuario').value = "";
+                    document.getElementById('su-clave').value = "";
+                    document.getElementById('su-nombre').value = "";
+                    document.getElementById('su-cedula').value = "";
+                    document.getElementById('su-tel').value = "";
+                    cargarListaCuentasAdmin();
+                }).catch(err => alert("Error: " + err.message));
+            }
+        });
+    }
+
+    // --- NUEVA FUNCIÓN EXCLUSIVA DEL ADMINISTRADOR PARA CAMBIAR SUS CREDENCIALES ---
+    function actualizarCredencialesDespacho() {
+        const nuevoUsuario = document.getElementById('admin-nuevo-usuario').value.trim();
+        const nuevaClave = document.getElementById('admin-nueva-clave').value.trim();
+        const sesionActual = SecureStorage.getItem('portal_sesion_usuario');
+        const rolActual = SecureStorage.getItem('portal_rol');
+
+        if (rolActual !== 'admin_principal' && rolActual !== 'superusuario') {
+            alert("Acceso denegado. Solo el Administrador del Despacho puede cambiar estas credenciales.");
+            return;
+        }
+
+        if (!nuevoUsuario || !nuevaClave) {
+            alert("Por favor, ingrese el nuevo usuario y la nueva contraseña.");
+            return;
+        }
+
+        db.ref("despachos_internos/" + nuevoUsuario).once("value", snapshot => {
+            if (snapshot.exists() && nuevoUsuario !== sesionActual) {
+                alert("El nombre de usuario ya está ocupado por otra cuenta. Elija uno diferente.");
+            } else {
+                db.ref("despachos_internos/" + sesionActual).once("value", snapActual => {
+                    if (!snapActual.exists() && rolActual === 'admin_principal') {
+                        alert("No se encontró el registro actual del despacho en la base de datos.");
+                        return;
+                    }
+
+                    let datosDespacho = snapActual.exists() ? snapActual.val() : {
+                        usuario: nuevoUsuario,
+                        rol: "admin_principal",
+                        adminPropietario: nuevoUsuario,
+                        nombreDespacho: "Despacho Principal",
+                        permisos: ["tab-info", "tab-monitoreo", "tab-aplicaciones", "tab-admin"],
+                        tipoCuenta: "despacho"
+                    };
+
+                    if (typeof datosDespacho === 'string') datosDespacho = descifrarP2P(datosDespacho);
+
+                    datosDespacho.usuario = nuevoUsuario;
+                    datosDespacho.clave = nuevaClave;
+                    datosDespacho.adminPropietario = nuevoUsuario;
+
+                    const actualizarOperacion = () => {
+                        db.ref("despachos_internos/" + nuevoUsuario).set(cifrarP2P(datosDespacho)).then(() => {
+                            if (nuevoUsuario !== sesionActual) {
+                                db.ref("despachos_internos/" + sesionActual).remove();
+                            }
+                            SecureStorage.setItem('portal_sesion_usuario', nuevoUsuario);
+                            SecureStorage.setItem('portal_admin_propietario', nuevoUsuario);
+                            alert("¡Credenciales del despacho actualizadas con éxito! Su sesión se ha sincronizado.");
+                            document.getElementById('admin-nuevo-usuario').value = "";
+                            document.getElementById('admin-nueva-clave').value = "";
+                            document.getElementById('titulo-usuario').innerText = "Despacho / Usuario: " + nuevoUsuario;
+                            cargarListaCuentasAdmin();
+                        }).catch(err => alert("Error al actualizar credenciales: " + err.message));
+                    };
+
+                    actualizarOperacion();
+                });
+            }
+        });
+    }
+
+    function cargarCacheClientesGlobal() {
+        db.ref("despachos_internos").on("value", snapshot => {
+            listaClientesCache = {};
+            const sesionActual = SecureStorage.getItem('portal_sesion_usuario');
+            const adminPropActual = SecureStorage.getItem('portal_admin_propietario');
+            const selectBuscador = document.getElementById('select-cliente-buscador');
+            const selectCargarAdmin = document.getElementById('select-cargar-cliente');
+            
+            let optionsHTML = '<option value="">-- Seleccionar cliente --</option>';
+
+            if (snapshot.exists()) {
+                snapshot.forEach(child => {
+                    const id = child.key;
+                    if (id !== ADMIN_TEMPORAL_USER) {
+                        let dat = child.val();
+                        if (typeof dat === 'string') dat = descifrarP2P(dat);
+
+                        if (dat && typeof dat === 'object') {
+                            const raizAdmin = adminPropActual || sesionActual;
+                            const esSuperusuario = (sesionActual === SUPERUSER_CHARLES || sesionActual === ADMIN_TEMPORAL_USER);
+                            const perteneceAlDespacho = esSuperusuario || (dat.adminPropietario === raizAdmin || dat.adminPropietario === sesionActual || id === sesionActual);
+
+                            if (perteneceAlDespacho && dat.tipoCuenta === "cliente") {
+                                listaClientesCache[id] = dat;
+                                optionsHTML += `<option value="${id}">${dat.nombreCliente || id} (${id})</option>`;
+                            }
+                        }
+                    }
+                });
+            }
+            if (selectBuscador) selectBuscador.innerHTML = optionsHTML;
+            if (selectCargarAdmin) selectCargarAdmin.innerHTML = optionsHTML.replace('-- Seleccionar cliente --', '-- Nuevo expediente de cliente (Limpiar campos) --');
+        });
+    }
+
+    function filtrarClientesSmart(texto) {
+        const select = document.getElementById('select-cliente-buscador');
+        if (!select) return;
+        const query = texto.trim().toLowerCase();
+        
+        if (query.length < 3 && query.length > 0) return;
+
+        let optionsHTML = '<option value="">-- Seleccionar cliente --</option>';
+        Object.keys(listaClientesCache).forEach(id => {
+            const cliente = listaClientesCache[id];
+            const nombre = (cliente.nombreCliente || "").toLowerCase();
+            const cedula = (cliente.cedulaCliente || "").toLowerCase();
+            const usr = id.toLowerCase();
+
+            if (query.length === 0 || nombre.includes(query) || cedula.includes(query) || usr.includes(query)) {
+                optionsHTML += `<option value="${id}">${cliente.nombreCliente || id} (${id})</option>`;
+            }
+        });
+        select.innerHTML = optionsHTML;
+    }
+
+    // --- FUNCIÓN DE SELECCIÓN Y CÓMPUTO GLOBAL SINCRONIZADO EN TODAS LAS PESTAÑAS ---
+    function seleccionarClienteGlobal(usuarioId) {
+        const selectBuscador = document.getElementById('select-cliente-buscador');
+        const selectCargar = document.getElementById('select-cargar-cliente');
+
+        if (selectBuscador) selectBuscador.value = usuarioId;
+        if (selectCargar) selectCargar.value = usuarioId;
+
+        if (!usuarioId) {
+            // Limpiar formulario si selecciona opción vacía
+            document.getElementById('adm-nombre-cliente').value = "";
+            document.getElementById('adm-cedula-cliente').value = "";
+            document.getElementById('adm-dir-cliente').value = "";
+            document.getElementById('adm-tel-cliente').value = "";
+            document.getElementById('contenedor-campos-cliente-dinamicos').innerHTML = "";
+            document.getElementById('contenedor-expedientes-dinamicos').innerHTML = "";
+            document.getElementById('contenido-info-general').innerHTML = "<p style='color:#777;'>Seleccione o cargue un expediente en el buscador superior...</p>";
+            document.getElementById('contenedor-historial-notas').innerHTML = "<em style='color:#666;'>Seleccione un expediente para ver su historial...</em>";
+            agregarCampoExpediente();
+            return;
+        }
+
+        const datos = listaClientesCache[usuarioId];
+        if (datos) {
+            // 1. Cargar Pestaña Información General
+            renderizarInformacionGeneral(usuarioId, datos);
+            // 2. Cargar Pestaña Seguimiento y Control
+            renderizarMonitoreoHistorial(usuarioId);
+            // 3. Cargar en Formulario del Panel Admin
+            cargarClienteEnFormularioDirecto(datos);
+            // 4. Actualizar Encabezado
+            document.getElementById('titulo-usuario').innerText = "Expediente de: " + (datos.nombreCliente || usuarioId);
+        } else {
+            // Si no está en caché local, se busca directo en Firebase
+            db.ref("despachos_internos/" + usuarioId).once("value", snapshot => {
+                if (snapshot.exists()) {
+                    let d = snapshot.val();
+                    if (typeof d === 'string') d = descifrarP2P(d);
+                    if (d) {
+                        listaClientesCache[usuarioId] = d;
+                        renderizarInformacionGeneral(usuarioId, d);
+                        renderizarMonitoreoHistorial(usuarioId);
+                        cargarClienteEnFormularioDirecto(d);
+                        document.getElementById('titulo-usuario').innerText = "Expediente de: " + (d.nombreCliente || usuarioId);
+                    }
+                }
+            });
+        }
+    }
+
+    function cargarClienteEnFormularioDirecto(d) {
+        document.getElementById('adm-fecha-recepcion').value = d.fechaRecepcion || "";
+        document.getElementById('adm-abogado').value = d.abogadoAsignado || "Abogado Titular del Despacho";
+        document.getElementById('adm-nombre-cliente').value = d.nombreCliente || "";
+        document.getElementById('adm-cedula-cliente').value = d.cedulaCliente || "";
+        document.getElementById('adm-dir-cliente').value = d.dirCliente || "";
+        document.getElementById('adm-tel-cliente').value = d.telCliente || "";
+        
+        renderizarCamposPersonalizadosCliente(d.datosClientePersonalizados || []);
+
+        const contenedorExpedientes = document.getElementById('contenedor-expedientes-dinamicos');
+        contenedorExpedientes.innerHTML = "";
+        if (d.expedientes && Array.isArray(d.expedientes) && d.expedientes.length > 0) {
+            d.expedientes.forEach(exp => agregarCampoExpediente(exp));
+        } else {
+            agregarCampoExpediente();
+        }
+    }
+
+    // Funciones para agregar campos dinámicos a nivel del CLIENTE
+    function agregarCampoPersonalizadoCliente(datos = {}) {
+        const container = document.getElementById('contenedor-campos-cliente-dinamicos');
+        const idItem = 'cpc_' + Date.now() + Math.random().toString(36).substring(2, 5);
+        
+        const html = `
+            <div class="item-campo-dinamico" id="${idItem}">
+                <input type="text" class="input-field cpc-nombre" placeholder="Nombre del dato (Ej: Estado Civil)" value="${datos.nombre || ''}">
+                <select class="input-field cpc-tipo">
+                    <option value="Texto" ${datos.tipo === 'Texto' ? 'selected' : ''}>Texto</option>
+                    <option value="Numérico" ${datos.tipo === 'Numérico' ? 'selected' : ''}>Numérico</option>
+                    <option value="Opciones" ${datos.tipo === 'Opciones' ? 'selected' : ''}>Opciones</option>
+                </select>
+                <input type="text" class="input-field cpc-valor" placeholder="Valor (Ej: Casado / V-123456)" value="${datos.valor || ''}">
+                <button type="button" class="btn-borrar-campo" onclick="document.getElementById('${idItem}').remove()">🗑️</button>
+            </div>
+        `;
+        container.insertAdjacentHTML('beforeend', html);
+    }
+
+    function renderizarCamposPersonalizadosCliente(camposArr = []) {
+        const container = document.getElementById('contenedor-campos-cliente-dinamicos');
+        container.innerHTML = "";
+        camposArr.forEach(cp => agregarCampoPersonalizadoCliente(cp));
+    }
+
+    function agregarCampoExpediente(datos = {}) {
+        const contenedor = document.getElementById('contenedor-expedientes-dinamicos');
+        const idUnico = 'exp_' + Date.now() + Math.random().toString(36).substring(2, 7);
+
+        const html = `
+            <div class="expediente-card" id="${idUnico}">
+                <button type="button" class="btn-eliminar-exp" onclick="document.getElementById('${idUnico}').remove()">🗑️ Quitar Expediente</button>
+                <h6 style="margin:0 0 12px 0; color:var(--primary); font-size:1.1em;">Causa / Expediente Judicial</h6>
+                
+                <div class="grid-2">
+                    <div>
+                        <label style="font-size:0.8em; font-weight:bold;">Materia del Expediente:</label>
+                        <select class="input-field exp-materia" onchange="manejarCambioMateria(this)">
+                            <option value="Penal" ${datos.materia === 'Penal' ? 'selected' : ''}>Penal</option>
+                            <option value="Civil" ${datos.materia === 'Civil' ? 'selected' : ''}>Civil</option>
+                            <option value="Mercantil" ${datos.materia === 'Mercantil' ? 'selected' : ''}>Mercantil</option>
+                            <option value="Laboral" ${datos.materia === 'Laboral' ? 'selected' : ''}>Laboral</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size:0.8em; font-weight:bold;">Número de Expediente:</label>
+                        <input type="text" class="input-field exp-num" placeholder="Nro. Expediente" value="${datos.numExpediente || ''}">
+                    </div>
+                </div>
+
+                <input type="text" class="input-field exp-tribunal" placeholder="Tribunal / Juzgado asignado" value="${datos.tribunal || ''}">
+                
+                <div class="campos-dinamicos-materia">
+                    ${renderizarCamposSegunMateria(datos)}
+                </div>
+
+                <div style="margin-top: 15px; border-top: 1px dashed #bbb; padding-top: 12px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <label style="font-size:0.85em; font-weight:bold; color:var(--primary);">Campos Personalizados del Expediente:</label>
+                        <button type="button" onclick="agregarCampoPersonalizadoExpediente(this)" class="btn-secundario" style="padding: 6px 12px; font-size: 0.8em;">➕ Agregar Campo</button>
+                    </div>
+                    <div class="contenedor-campos-personalizados">
+                        ${renderizarCamposPersonalizadosHTML(datos.camposPersonalizados || [])}
+                    </div>
+                </div>
+            </div>
+        `;
+        contenedor.insertAdjacentHTML('beforeend', html);
+        dispararEventosMateriaInicial(document.getElementById(idUnico));
+    }
+
+    function renderizarCamposSegunMateria(datos = {}) {
+        const materia = datos.materia || 'Penal';
+        if (materia === 'Penal') {
+            const fase = datos.fase || 'Preparatoria';
+            return `
+                <input type="text" class="input-field exp-delito" placeholder="Delito(s) Imputados" value="${datos.delito || ''}">
+                <label style="font-size:0.8em; font-weight:bold;">Fase Procesal Penal:</label>
+                <select class="input-field exp-fase-penal" onchange="manejarCambioFasePenal(this)">
+                    <option value="Preparatoria" ${fase === 'Preparatoria' ? 'selected' : ''}>Preparatoria</option>
+                    <option value="Intermedia" ${fase === 'Intermedia' ? 'selected' : ''}>Intermedia</option>
+                    <option value="Juicio" ${fase === 'Juicio' ? 'selected' : ''}>Juicio</option>
+                    <option value="Ejecución" ${fase === 'Ejecución' ? 'selected' : ''}>Ejecución</option>
+                </select>
+                <div class="bloque-fase-juicio" style="display: ${fase === 'Juicio' ? 'block' : 'none'}; background: #e8eaf6; padding: 10px; border-radius: 6px; margin-top: 8px;">
+                    <label style="font-size: 0.8em; font-weight: bold; color: var(--primary);">⚖️ Acervo Probatorio (Juicio):</label>
+                    <textarea class="input-field exp-acervo-probatorio" placeholder="Detalle las pruebas evacuadas e incorporadas..." style="height: 60px;">${datos.acervoProbatorio || ''}</textarea>
+                </div>
+                <div class="bloque-fase-ejecucion" style="display: ${fase === 'Ejecución' ? 'block' : 'none'}; background: #fff3e0; padding: 10px; border-radius: 6px; margin-top: 8px;">
+                    <label style="font-size: 0.8em; font-weight: bold; color: #e65100;">⏱️ Rendiciones de Pena y Beneficios:</label>
+                    <textarea class="input-field exp-rendiciones-pena" placeholder="Detalle redenciones, destacamento, régimen abierto..." style="height: 60px;">${datos.rendicionesPena || ''}</textarea>
+                </div>
+            `;
+        } else {
+            return `
+                <input type="text" class="input-field exp-partes" placeholder="Partes involucradas (Demandante / Demandado)" value="${datos.partes || ''}">
+                <input type="text" class="input-field exp-estado-causa" placeholder="Estado actual del procedimiento" value="${datos.estadoCausa || ''}">
+            `;
+        }
+    }
+
+    function manejarCambioMateria(select) {
+        const card = select.closest('.expediente-card');
+        const contenedorCampos = card.querySelector('.campos-dinamicos-materia');
+        contenedorCampos.innerHTML = renderizarCamposSegunMateria({ materia: select.value });
+    }
+
+    function manejarCambioFasePenal(select) {
+        const card = select.closest('.expediente-card');
+        const bloqueJuicio = card.querySelector('.bloque-fase-juicio');
+        const bloqueEjecucion = card.querySelector('.bloque-fase-ejecucion');
+        if (bloqueJuicio) bloqueJuicio.style.display = select.value === 'Juicio' ? 'block' : 'none';
+        if (bloqueEjecucion) bloqueEjecucion.style.display = select.value === 'Ejecución' ? 'block' : 'none';
+    }
+
+    function dispararEventosMateriaInicial(card) {
+        const selectMateria = card.querySelector('.exp-materia');
+        if (selectMateria) manejarCambioMateria(selectMateria);
+    }
+
+    function agregarCampoPersonalizadoExpediente(btn) {
+        const container = btn.closest('.expediente-card').querySelector('.contenedor-campos-personalizados');
+        const idSub = 'cpexp_' + Date.now() + Math.random().toString(36).substring(2, 5);
+        const html = `
+            <div class="item-campo-dinamico" id="${idSub}">
+                <input type="text" class="input-field cp-nombre" placeholder="Nombre del campo" style="margin-bottom:0;">
+                <select class="input-field cp-tipo" style="margin-bottom:0;">
+                    <option value="Texto">Texto</option>
+                    <option value="Numérico">Numérico</option>
+                    <option value="Opciones">Opciones</option>
+                </select>
+                <input type="text" class="input-field cp-valor" placeholder="Valor" style="margin-bottom:0;">
+                <button type="button" class="btn-borrar-campo" onclick="document.getElementById('${idSub}').remove()">🗑️</button>
+            </div>
+        `;
+        container.insertAdjacentHTML('beforeend', html);
+    }
+
+    function renderizarCamposPersonalizadosHTML(camposArr = []) {
+        let html = '';
+        camposArr.forEach(cp => {
+            const idSub = 'cpexp_' + Date.now() + Math.random().toString(36).substring(2, 5);
+            html += `
+                <div class="item-campo-dinamico" id="${idSub}">
+                    <input type="text" class="input-field cp-nombre" value="${cp.nombre || ''}" placeholder="Nombre del campo">
+                    <select class="input-field cp-tipo">
+                        <option value="Texto" ${cp.tipo === 'Texto' ? 'selected' : ''}>Texto</option>
+                        <option value="Numérico" ${cp.tipo === 'Numérico' ? 'selected' : ''}>Numérico</option>
+                        <option value="Opciones" ${cp.tipo === 'Opciones' ? 'selected' : ''}>Opciones</option>
+                    </select>
+                    <input type="text" class="input-field cp-valor" value="${cp.valor || ''}" placeholder="Valor">
+                    <button type="button" class="btn-borrar-campo" onclick="document.getElementById('${idSub}').remove()">🗑️</button>
+                </div>
+            `;
+        });
+        return html;
+    }
+
+    function alternarPermisosGlobales(checkbox) {
+        const checks = document.querySelectorAll('.chk-permiso');
+        checks.forEach(chk => chk.checked = checkbox.checked);
+    }
+
+    function guardarSubAdministrador() {
+        const usuario = document.getElementById('sub-usuario').value.trim();
+        const clave = document.getElementById('sub-clave').value.trim();
+        const nombre = document.getElementById('sub-nombre').value.trim();
+        const sesionActual = SecureStorage.getItem('portal_sesion_usuario');
+        const adminPropietarioActual = SecureStorage.getItem('portal_admin_propietario') || sesionActual;
+
+        if (!usuario || !clave || !nombre) {
+            alert("Por favor, complete usuario, contraseña y nombre del subadministrador.");
+            return;
+        }
+
+        const permisosSeleccionados = [];
+        document.querySelectorAll('.chk-permiso').forEach(chk => {
+            if (chk.checked) permisosSeleccionados.push(chk.value);
+        });
+
+        const esPoderAbsoluto = document.getElementById('permiso-todo').checked || permisosSeleccionados.length === 4;
+        const permisosFinales = esPoderAbsoluto ? ["tab-info", "tab-monitoreo", "tab-aplicaciones", "tab-admin"] : permisosSeleccionados;
+
+        const subAdminPayload = {
+            usuario: usuario,
+            clave: clave,
+            rol: "subadmin",
+            tipoCuenta: "subadmin",
+            adminPropietario: adminPropietarioActual,
+            nombreCliente: nombre,
+            permisos: permisosFinales
+        };
+
+        db.ref("despachos_internos/" + usuario).set(cifrarP2P(subAdminPayload)).then(() => {
+            alert("¡Subadministrador registrado con éxito!");
+            document.getElementById('sub-usuario').value = "";
+            document.getElementById('sub-clave').value = "";
+            document.getElementById('sub-nombre').value = "";
+            cargarListaCuentasAdmin();
+        }).catch(err => {
+            alert("Error al registrar subadministrador: " + err.message);
+        });
+    }
+
+    async function guardarExpedienteCompleto() {
+        const usuario = document.getElementById('adm-cedula-cliente').value.trim() || ("cliente_" + Date.now());
+        const clave = "cliente_interno_2026";
+        const sesionActual = SecureStorage.getItem('portal_sesion_usuario');
+        const adminPropietarioActual = SecureStorage.getItem('portal_admin_propietario') || sesionActual;
+
+        const nombreCliente = document.getElementById('adm-nombre-cliente').value.trim();
+        if (!nombreCliente) {
+            alert("Por favor, ingrese al menos el nombre del cliente/expediente.");
+            return;
+        }
+
+        const datosClientePersonalizados = [];
+        document.querySelectorAll('#contenedor-campos-cliente-dinamicos .item-campo-dinamico').forEach(item => {
+            const nom = item.querySelector('.cpc-nombre').value.trim();
+            const val = item.querySelector('.cpc-valor').value.trim();
+            if (nom) {
+                datosClientePersonalizados.push({
+                    nombre: nom,
+                    tipo: item.querySelector('.cpc-tipo').value,
+                    valor: val
+                });
+            }
+        });
+
+        const expedientes = [];
+        document.querySelectorAll('.expediente-card').forEach(card => {
+            const materia = card.querySelector('.exp-materia').value;
+            const camposPersonalizados = [];
+            card.querySelectorAll('.contenedor-campos-personalizados .item-campo-dinamico').forEach(item => {
+                const nom = item.querySelector('.cp-nombre').value.trim();
+                const val = item.querySelector('.cp-valor').value.trim();
+                if (nom) {
+                    camposPersonalizados.push({
+                        nombre: nom,
+                        tipo: item.querySelector('.cp-tipo').value,
+                        valor: val
+                    });
+                }
+            });
+
+            const expData = {
+                materia: materia,
+                numExpediente: card.querySelector('.exp-num').value.trim(),
+                tribunal: card.querySelector('.exp-tribunal').value.trim(),
+                camposPersonalizados: camposPersonalizados
+            };
+
+            if (materia === 'Penal') {
+                expData.delito = card.querySelector('.exp-delito').value.trim();
+                expData.fase = card.querySelector('.exp-fase-penal').value;
+                const acervo = card.querySelector('.exp-acervo-probatorio');
+                const rend = card.querySelector('.exp-rendiciones-pena');
+                expData.acervoProbatorio = acervo ? acervo.value.trim() : '';
+                expData.rendicionesPena = rend ? rend.value.trim() : '';
+            } else {
+                expData.partes = card.querySelector('.exp-partes').value.trim();
+                expData.estadoCausa = card.querySelector('.exp-estado-causa').value.trim();
+            }
+
+            expedientes.push(expData);
+        });
+
+        const payload = {
+            usuario: usuario,
+            clave: clave,
+            rol: "cliente_interno",
+            tipoCuenta: "cliente",
+            adminPropietario: adminPropietarioActual, 
+            fechaRecepcion: document.getElementById('adm-fecha-recepcion').value,
+            abogadoAsignado: document.getElementById('adm-abogado').value,
+            nombreCliente: nombreCliente,
+            cedulaCliente: document.getElementById('adm-cedula-cliente').value.trim(),
+            dirCliente: document.getElementById('adm-dir-cliente').value.trim(),
+            telCliente: document.getElementById('adm-tel-cliente').value.trim(),
+            datosClientePersonalizados: datosClientePersonalizados,
+            expedientes: expedientes
+        };
+
+        db.ref("despachos_internos/" + usuario).set(cifrarP2P(payload)).then(() => {
+            alert("¡Expediente de cliente guardado de forma segura en la base de datos del despacho!");
+            cargarListaCuentasAdmin();
+            cargarCacheClientesGlobal();
+        }).catch(error => {
+            alert("Error al guardar: " + error.message);
+        });
+    }
+
+    function intentarIngresoPortal() {
+        const usuarioInput = document.getElementById('login-usuario').value.trim();
+        const claveInput = document.getElementById('login-clave').value.trim();
+
+        if (!usuarioInput || !claveInput) {
+            alert("Por favor, ingrese usuario y contraseña.");
+            return;
+        }
+
+        // Ingreso especial para el Superusuario Charles o Admin Temporal
+        if (usuarioInput.toLowerCase() === SUPERUSER_CHARLES || (usuarioInput === ADMIN_TEMPORAL_USER && claveInput === ADMIN_TEMPORAL_CLAVE)) {
+            const superUserPayload = {
+                rol: 'superusuario',
+                adminPropietario: usuarioInput,
+                permisos: ["tab-info", "tab-monitoreo", "tab-aplicaciones", "tab-admin"]
+            };
+            SecureStorage.setItem('portal_sesion_usuario', usuarioInput);
+            SecureStorage.setItem('portal_rol', 'superusuario');
+            SecureStorage.setItem('portal_admin_propietario', usuarioInput);
+            SecureStorage.setItem('portal_permisos', JSON.stringify(superUserPayload.permisos));
+            configurarAccesoUI(usuarioInput, superUserPayload);
+            return;
+        }
+
+        db.ref("despachos_internos/" + usuarioInput).once("value", snapshot => {
+            if (snapshot.exists()) {
+                let datos = snapshot.val();
+                if (typeof datos === 'string') datos = descifrarP2P(datos);
+
+                if (datos && datos.clave === claveInput) {
+                    SecureStorage.setItem('portal_sesion_usuario', usuarioInput);
+                    SecureStorage.setItem('portal_rol', datos.rol || 'subadmin');
+                    SecureStorage.setItem('portal_admin_propietario', datos.adminPropietario || usuarioInput);
+                    SecureStorage.setItem('portal_permisos', JSON.stringify(datos.permisos || ["tab-info", "tab-monitoreo"]));
+                    configurarAccesoUI(usuarioInput, datos);
+                } else {
+                    alert("Contraseña incorrecta.");
+                }
+            } else {
+                alert("El usuario no se encuentra registrado.");
+            }
+        });
+    }
+
+    function verificarYEntrarSesion(usuario) {
+        if (usuario.toLowerCase() === SUPERUSER_CHARLES || usuario === ADMIN_TEMPORAL_USER) {
+            configurarAccesoUI(usuario, { rol: 'superusuario', adminPropietario: usuario, permisos: ["tab-info", "tab-monitoreo", "tab-aplicaciones", "tab-admin"] });
+            return;
+        }
+
+        db.ref("despachos_internos/" + usuario).once("value", snapshot => {
+            if (snapshot.exists()) {
+                let datos = snapshot.val();
+                if (typeof datos === 'string') datos = descifrarP2P(datos);
+                if (datos) {
+                    configurarAccesoUI(usuario, datos);
+                } else {
+                    cerrarSesion();
+                }
+            } else {
+                cerrarSesion();
+            }
+        });
+    }
+
+    function configurarAccesoUI(usuario, datos) {
+        document.getElementById('seccion-login').style.display = 'none';
+        document.getElementById('seccion-portal').style.display = 'block';
+
+        const rol = datos.rol || 'subadmin';
+        const permisos = datos.permisos || ["tab-info", "tab-monitoreo"];
+        
+        // Habilitar la sección especial de Superusuario Charles
+        const seccionSuper = document.getElementById('seccion-superadmin-charles');
+        if (seccionSuper) {
+            seccionSuper.style.display = (usuario.toLowerCase() === SUPERUSER_CHARLES || rol === 'superusuario') ? 'block' : 'none';
+        }
+
+        // Habilitar la sección de cambio de credenciales solo para administradores principales o superusuarios
+        const seccionCambiarCredenciales = document.getElementById('seccion-cambiar-credenciales-admin');
+        if (seccionCambiarCredenciales) {
+            seccionCambiarCredenciales.style.display = (rol === 'admin_principal' || rol === 'superusuario' || usuario.toLowerCase() === SUPERUSER_CHARLES) ? 'block' : 'none';
+        }
+
+        SecureStorage.setItem('portal_rol', rol);
+        SecureStorage.setItem('portal_admin_propietario', datos.adminPropietario || usuario);
+        SecureStorage.setItem('portal_permisos', JSON.stringify(permisos));
+
+        document.getElementById('titulo-usuario').innerText = "Despacho / Usuario: " + usuario;
+        document.getElementById('subtitulo-rol').innerText = "Rol: " + (rol === 'superusuario' ? 'Superusuario Global' : (rol === 'admin_principal' ? 'Administrador Principal' : 'Subadministrador'));
+
+        const btnTabInfo = document.getElementById('btn-tab-info');
+        const btnTabMonitoreo = document.getElementById('btn-tab-monitoreo');
+        const btnTabAplicaciones = document.getElementById('btn-tab-aplicaciones');
+        const btnTabAdmin = document.getElementById('btn-tab-admin');
+
+        btnTabInfo.style.display = permisos.includes('tab-info') ? 'block' : 'none';
+        btnTabMonitoreo.style.display = permisos.includes('tab-monitoreo') ? 'block' : 'none';
+        btnTabAplicaciones.style.display = permisos.includes('tab-aplicaciones') ? 'block' : 'none';
+        btnTabAdmin.style.display = permisos.includes('tab-admin') ? 'block' : 'none';
+
+        let primeraPestanaVisible = 'tab-info';
+        if (!permisos.includes('tab-info')) {
+            if (permisos.includes('tab-monitoreo')) primeraPestanaVisible = 'tab-monitoreo';
+            else if (permisos.includes('tab-aplicaciones')) primeraPestanaVisible = 'tab-aplicaciones';
+            else if (permisos.includes('tab-admin')) primeraPestanaVisible = 'tab-admin';
+        }
+        
+        cambiarPestaña({ currentTarget: document.getElementById('btn-' + primeraPestanaVisible.replace('tab-', 'btn-tab-')) }, primeraPestanaVisible);
+
+        if (permisos.includes('tab-admin') && document.querySelectorAll('.expediente-card').length === 0) {
+            agregarCampoExpediente();
+        }
+
+        if (permisos.includes('tab-admin')) {
+            cargarListaCuentasAdmin();
+        }
+    }
+
+    function renderizarInformacionGeneral(usuario, d) {
+        const contenedor = document.getElementById('contenido-info-general');
+        
+        let htmlDatosClienteExtra = "";
+        if (d.datosClientePersonalizados && Array.isArray(d.datosClientePersonalizados)) {
+            d.datosClientePersonalizados.forEach(cp => {
+                if (cp && cp.nombre && cp.valor) {
+                    htmlDatosClienteExtra += `<p><b>${cp.nombre}:</b> ${cp.valor}</p>`;
+                }
+            });
+        }
+
+        let htmlExpedientes = "";
+        if (d.expedientes && Array.isArray(d.expedientes) && d.expedientes.length > 0) {
+            d.expedientes.forEach((exp, index) => {
+                let camposExtraHTML = "";
+                if (exp.camposPersonalizados && Array.isArray(exp.camposPersonalizados)) {
+                    exp.camposPersonalizados.forEach(cp => {
+                        if (cp && cp.nombre && cp.valor) {
+                            camposExtraHTML += `<p><b>${cp.nombre}:</b> ${cp.valor}</p>`;
+                        }
+                    });
+                }
+
+                htmlExpedientes += `
+                    <div style="background:#f8f9fa; border:1px solid #d1c4e9; padding:14px; border-radius:6px; margin-top:10px;">
+                        <h6 style="margin:0 0 8px 0; color:var(--primary); font-size:1.05em;">Causa / Expediente #${index + 1} (${exp.materia || 'Penal'})</h6>
+                        <p><b>Nro. Expediente:</b> ${exp.numExpediente || 'No especificado'}</p>
+                        <p><b>Tribunal:</b> ${exp.tribunal || 'No especificado'}</p>
+                        ${exp.materia === 'Penal' ? `
+                            <p><b>Delito(s):</b> ${exp.delito || 'No especificado'}</p>
+                            <p><b>Fase Procesal:</b> <span style="color:var(--secondary); font-weight:bold;">${exp.fase || 'Preparatoria'}</span></p>
+                            ${exp.acervoProbatorio ? `<p><b>Acervo Probatorio (Juicio):</b> ${exp.acervoProbatorio}</p>` : ''}
+                            ${exp.rendicionesPena ? `<p><b>Rendiciones y Beneficios (Ejecución):</b> ${exp.rendicionesPena}</p>` : ''}
+                        ` : `
+                            <p><b>Partes:</b> ${exp.partes || 'No especificado'}</p>
+                            <p><b>Estado de la Causa:</b> ${exp.estadoCausa || 'No especificado'}</p>
+                        `}
+                        ${camposExtraHTML}
+                    </div>
+                `;
+            });
+        } else {
+            htmlExpedientes = "<p style='color:#666;'>No hay expedientes registrados.</p>";
+        }
+
+        contenedor.innerHTML = `
+            <div class="info-bloque">
+                <h5 style="margin:0 0 8px 0; color:var(--primary);">👤 Datos Generales del Cliente</h5>
+                <p><b>Nombre del Cliente:</b> ${d.nombreCliente || 'No especificado'}</p>
+                <p><b>Cédula / RIF:</b> ${d.cedulaCliente || 'No especificada'}</p>
+                <p><b>Dirección:</b> ${d.dirCliente || 'No especificada'}</p>
+                <p><b>Teléfono:</b> ${d.telCliente || 'No especificado'}</p>
+                ${htmlDatosClienteExtra}
+                <p><b>Abogado Asignado:</b> ${d.abogadoAsignado || 'Abogado Titular del Despacho'}</p>
+                <p><b>Fecha de Recepción:</b> ${d.fechaRecepcion || 'No especificada'}</p>
+            </div>
+            <div class="info-bloque">
+                <h5 style="margin:0 0 8px 0; color:var(--primary);">🏛️ Expedientes Asociados</h5>
+                ${htmlExpedientes}
+            </div>
+        `;
+    }
+
+    function subirArchivoYGuardarNota() {
+        let idCaso = document.getElementById('adm-cedula-cliente').value.trim();
+        if (!idCaso) idCaso = document.getElementById('adm-nombre-cliente').value.trim();
+        if (!idCaso) {
+            alert("Por favor, seleccione o cargue un expediente de cliente primero.");
+            return;
+        }
+
+        const archivoInput = document.getElementById('input-archivo-adjunto');
+        const textoNota = document.getElementById('input-nota-archivo').value.trim();
+        const archivo = archivoInput.files[0];
+        const abogadoActual = document.getElementById('adm-abogado').value;
+        const fechaActual = new Date().toLocaleString();
+
+        if (!archivo && !textoNota) {
+            alert("Debe seleccionar un archivo (PDF/Word/Imagen) o escribir una nota.");
+            return;
+        }
+
+        if (archivo) {
+            const storageRef = firebase.storage().ref(`documentos_despachos/${idCaso}_${Date.now()}_${archivo.name}`);
+            storageRef.put(archivo).then(snapshot => {
+                return snapshot.ref.getDownloadURL();
+            }).then(downloadURL => {
+                const contenidoFinal = textoNota ? `${textoNota}\n${downloadURL}` : downloadURL;
+                guardarNotaEnDB(idCaso, contenidoFinal, abogadoActual, fechaActual);
+            }).catch(error => {
+                alert("Error al subir archivo a Storage: " + error.message);
+            });
+        } else {
+            guardarNotaEnDB(idCaso, textoNota, abogadoActual, fechaActual);
+        }
+    }
+
+    function guardarNotaEnDB(idCaso, texto, abogado, fecha) {
+        const notasRef = db.ref('seguimiento_despachos/' + idCaso + '/notas_historial');
+        const dataNota = { texto, fecha, abogado };
+
+        notasRef.push(cifrarP2P(dataNota)).then(() => {
+            alert("¡Actualización guardada con cifrado P2P correctamente en Seguimiento!");
+            document.getElementById('input-archivo-adjunto').value = "";
+            document.getElementById('input-nota-archivo').value = "";
+            renderizarMonitoreoHistorial(idCaso);
+        }).catch(err => alert("Error al guardar: " + err.message));
+    }
+
+    function renderizarMonitoreoHistorial(idCaso) {
+        const contenedor = document.getElementById('contenedor-historial-notas');
+        if (!idCaso) {
+            contenedor.innerHTML = '<em style="color: #666;">Seleccione un expediente para ver su historial...</em>';
+            return;
+        }
+
+        db.ref('seguimiento_despachos/' + idCaso + '/notas_historial').once('value', snapshot => {
+            contenedor.innerHTML = "";
+            if (snapshot.exists()) {
+                const notas = snapshot.val();
+                let html = "";
+                Object.keys(notas).forEach(key => {
+                    let item = notas[key];
+                    if (typeof item === 'string') item = descifrarP2P(item);
+                    
+                    if (item && typeof item === 'object') {
+                        html += `
+                            <div style="background: white; padding: 10px 12px; margin-bottom: 8px; border-left: 3px solid #1a237e; border-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                                <div style="font-size: 0.75em; color: #555; margin-bottom: 4px;">
+                                    <b>📅 ${item.fecha}</b> | 👤 <i>${item.abogado || 'Abogado Despacho'}</i>
+                                </div>
+                                <div>${formatearTextoHistorial(item.texto)}</div>
+                            </div>
+                        `;
+                    }
+                });
+                contenedor.innerHTML = html;
+            } else {
+                contenedor.innerHTML = '<em style="color: #666;">No hay actuaciones registradas en el historial de seguimiento.</em>';
+            }
+        });
+    }
+
+    function formatearTextoHistorial(texto) {
+        if (!texto) return '';
+        let textoEscapado = texto.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, '<br>');
+        const expRegular = /(https?:\/\/[^\s]+)/g;
+        return textoEscapado.replace(expRegular, function(url) {
+            return `
+                <div style="margin-top: 8px; padding: 8px; background: #f1f3f5; border-radius: 6px; display: inline-block;">
+                    <a href="${url}" target="_blank" rel="noopener noreferrer" style="background: #1a237e; color: white; padding: 6px 12px; border-radius: 4px; text-decoration: none; font-size: 0.85em; font-weight: bold;">📎 Descargar / Ver Documento Adjunto</a>
+                </div>
+            `;
+        });
+    }
+
+    function cargarListaCuentasAdmin() {
+        db.ref("despachos_internos").on("value", snapshot => {
+            const contenedor = document.getElementById('lista-cuentas-admin');
+            const sesionActual = SecureStorage.getItem('portal_sesion_usuario');
+            const adminPropActual = SecureStorage.getItem('portal_admin_propietario');
+            
+            contenedor.innerHTML = "";
+
+            if (!snapshot.exists()) {
+                contenedor.innerHTML = "<p style='color:#666; font-size:0.9em;'>No hay cuentas registradas aún.</p>";
+                return;
+            }
+
+            snapshot.forEach(child => {
+                let c = child.val();
+                const id = child.key;
+                if (typeof c === 'string') c = descifrarP2P(c);
+
+                if (c && typeof c === 'object') {
+                    const raizAdmin = adminPropActual || sesionActual;
+                    const esSuper = (sesionActual === SUPERUSER_CHARLES || sesionActual === ADMIN_TEMPORAL_USER);
+                    const esDelDespacho = esSuper || (c.adminPropietario === raizAdmin || c.adminPropietario === sesionActual || id === sesionActual);
+
+                    if (id !== ADMIN_TEMPORAL_USER && esDelDespacho) {
+                        contenedor.innerHTML += `
+                            <div style="background:#f9f9f9; padding:8px; margin-bottom:6px; border-radius:6px; display:flex; justify-content:space-between; align-items:center; border:1px solid #eee;">
+                                <div><b>${c.tipoCuenta === 'despacho' ? '🏛️ Despacho' : (c.tipoCuenta === 'subadmin' ? '👤 Subadmin' : '📁 Cliente')}:</b> ${id} - <small>${c.nombreCliente || c.nombreDespacho || 'Sin nombre'}</small><br><small style="color:var(--primary);">Rol: <b>${c.rol}</b></small></div>
+                                <div>
+                                    ${c.tipoCuenta === 'cliente' ? `<button onclick="cargarClienteDirecto('${id}')" style="background:var(--primary); color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; margin-right:4px;">✏️ Editar</button>` : ''}
+                                    <button onclick="eliminarCuenta('${id}')" style="background:var(--secondary); color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">🗑️</button>
+                                </div>
+                            </div>`;
+                    }
+                }
+            });
+        });
+    }
+
+    function cargarClienteDirecto(id) {
+        seleccionarClienteGlobal(id);
+        cambiarPestaña({ currentTarget: document.getElementById('btn-tab-admin') }, 'tab-admin');
+    }
+
+    function eliminarCuenta(id) {
+        if (confirm(`¿Está seguro de eliminar este registro (${id})?`)) {
+            db.ref("despachos_internos/" + id).remove().then(() => alert("Registro eliminado correctamente."));
+        }
+    }
+
+    function cambiarPestaña(evt, tabId) {
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(tabId).classList.add('active');
+        evt.currentTarget.classList.add('active');
+    }
+
+    function cerrarSesion() {
+        SecureStorage.removeItem('portal_sesion_usuario');
+        SecureStorage.removeItem('portal_rol');
+        SecureStorage.removeItem('portal_admin_propietario');
+        SecureStorage.removeItem('portal_permisos');
+        location.reload();
+    }
+</script>
+
+</body>
+</html>
