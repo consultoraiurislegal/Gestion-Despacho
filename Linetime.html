@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>LexControl Timeline - PWA Jurídica</title>
+    
+    <!-- PWA Manifest y Configuración de Tema -->
+    <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#0f172a">
     <meta name="description" content="Línea de Tiempo Interactiva y Calculador de Lapsos Procesales Venezolanos con Cifrado P2P">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -391,6 +394,13 @@
                     dropdown.classList.add('hidden');
                 }
             });
+
+            // Registro de Service Worker para PWA
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('Service Worker registrado con éxito:', reg.scope))
+                    .catch(err => console.log('Error al registrar el Service Worker:', err));
+            }
         };
 
         function setupNetworkStatus() {

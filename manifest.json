@@ -1,10 +1,10 @@
 {
-  "name": "LegalMind Red de Referidos",
-  "short_name": "LegalMind",
-  "start_url": "./Referidos.html",
+  "name": "Portal Jurídico - Gestión Interna",
+  "short_name": "Portal Jurídico",
+  "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#030712",
-  "theme_color": "#f59e0b",
+  "background_color": "#f0f2f5",
+  "theme_color": "#1a237e",
   "icons": [
     {
       "src": "android-chrome-192x192.png",

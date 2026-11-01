@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>LegalMind - Red Visual de Referidos Legal</title>
 
-  <!-- PWA Web App Manifest (Data URI) -->
-  <link rel="manifest" id="pwa-manifest">
+  <!-- PWA Web App Manifest Estático -->
+  <link rel="manifest" href="./manifest.json">
 
   <!-- Configuración PWA / iOS / Android -->
   <meta name="theme-color" content="#f59e0b">
@@ -468,35 +468,22 @@
     const db = firebase.database();
 
     // DETERMINACIÓN DINÁMICA DEL DESPACHO ACTIVO DESDE LA SESIÓN DE LETS CONTROL
-    // Se obtiene el ID o propietario del despacho almacenado en localStorage por la app principal
     function obtenerDespachoActivoId() {
-      // Intenta recuperar la sesión activa guardada por la app principal lexcontrol.html
       const sesionActiva = localStorage.getItem('portal_sesion_usuario');
       const adminPropietario = localStorage.getItem('portal_admin_propietario');
-      
-      // Si hay un despacho en curso definido, se asocia a su nodo; de lo contrario, se usa 'despacho_general'
       const despachoId = adminPropietario || sesionActiva || 'despacho_general';
       return despachoId;
     }
 
     const DESPACHO_ACTIVO_ID = obtenerDespachoActivoId();
-    // Ruta dinámica en Firebase vinculada al despacho principal de Lets Control
     const FIREBASE_REF_PATH = `despachos_internos/${DESPACHO_ACTIVO_ID}/red_referidos`;
 
-    // REGISTRO DE SERVICE WORKER PARA CACHÉ Y NOTIFICACIONES NATIVAS EN ANDROID WEBVIEW
+    // REGISTRO DE SERVICE WORKER FÍSICO ESTÁTICO
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        const swCode = `
-          self.addEventListener('install', (e) => { self.skipWaiting(); });
-          self.addEventListener('activate', (e) => { e.waitUntil(clients.claim()); });
-
-          self.addEventListener('fetch', (e) => {
-            e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
-          });
-        `;
-        const blob = new Blob([swCode], { type: 'application/javascript' });
-        const swUrl = URL.createObjectURL(blob);
-        navigator.serviceWorker.register(swUrl).catch(err => console.log('SW Error:', err));
+        navigator.serviceWorker.register('./sw.js')
+          .then(reg => console.log('Service Worker registrado:', reg.scope))
+          .catch(err => console.log('SW Error:', err));
       });
     }
 
@@ -511,7 +498,6 @@
       document.getElementById('caseDate').value = new Date().toISOString().slice(0,10);
       document.getElementById('despachoSubTitle').textContent = `Despacho en curso: ${DESPACHO_ACTIVO_ID}`;
       
-      setupPWA();
       initFirebaseSync();
       solicitarPermisosNotificacion();
       iniciarGestorDeAlertasLocales();
@@ -568,43 +554,6 @@
           localStorage.setItem('legalmind_triggered_alerts_' + DESPACHO_ACTIVO_ID, JSON.stringify(triggeredList));
         }
       }, 30000);
-    }
-
-    function setupPWA() {
-      const manifestObj = {
-        name: "LegalMind Red de Referidos",
-        short_name: "LegalMind",
-        start_url: window.location.href,
-        display: "standalone",
-        background_color: "#030712",
-        theme_color: "#f59e0b",
-        icons: [
-          { src: "https://placehold.co/192x192/f59e0b/030712?text=LM", sizes: "192x192", type: "image/png" },
-          { src: "https://placehold.co/512x512/f59e0b/030712?text=LM", sizes: "512x512", type: "image/png" }
-        ]
-      };
-      const blob = new Blob([JSON.stringify(manifestObj)], { type: 'application/json' });
-      document.getElementById('pwa-manifest').setAttribute('href', URL.createObjectURL(blob));
-
-      window.addEventListener('beforeinstallprompt', (e) => {
-        e.preventDefault();
-        deferredPrompt = e;
-        document.getElementById('pwaInstallBtn').classList.remove('hidden');
-      });
-    }
-
-    function installPWA() {
-      if (deferredPrompt) {
-        deferredPrompt.prompt();
-        deferredPrompt.userChoice.then((choiceResult) => {
-          if (choiceResult.outcome === 'accepted') {
-            document.getElementById('pwaInstallBtn').classList.add('hidden');
-          }
-          deferredPrompt = null;
-        });
-      } else {
-        alert("Para instalar en tu dispositivo:\n\n- En Chrome / Edge: Presiona los 3 puntos del navegador y elige 'Agregar a la pantalla de inicio' o 'Instalar aplicación'.\n- En Safari (iOS): Presiona Compartir y elige 'Agregar a inicio'.");
-      }
     }
 
     // SINCRONIZACIÓN EN TIEMPO REAL CON FIREBASE EN EL NODO DEL DESPACHO ACTIVO
@@ -713,7 +662,6 @@
       handleTimeRangeChange();
     }
 
-    // OBTENER CASOS FILTRADOS SEGÚN EL LAPSO SELECCIONADO
     function getFilteredCases() {
       const range = document.getElementById('globalTimeRange').value;
       if (range === 'all') return refCases;
@@ -751,7 +699,6 @@
       });
     }
 
-    // MAPA INTERACTIVO (VIS.JS) ACTUALIZADO
     function updateGraphData() {
       const container = document.getElementById('network-container');
       if (!container) return;
@@ -920,7 +867,6 @@
       return descendants;
     }
 
-    // PANEL DE DETALLES Y MÉTRICAS GENERALES DE LA RED
     function renderDetailsPanel() {
       const container = document.getElementById('selectedDetailContent');
       const filteredCases = getFilteredCases();
@@ -1062,7 +1008,6 @@
       renderGeneralOverview(container);
     }
 
-    // RENDERIZADO DE LAS 5 MÉTRICAS CLAVE EN EL RESUMEN GENERAL DE LA RED
     function renderGeneralOverview(container) {
       const filteredCases = getFilteredCases();
       
@@ -1109,7 +1054,6 @@
       `;
     }
 
-    // SECCIÓN DE CONTACTOS (DIRECTORIO / REFERIDORES)
     function renderContactsList() {
       const list = document.getElementById('contactsList');
       if (refContacts.length === 0) {
@@ -1152,7 +1096,6 @@
       }).join('');
     }
 
-    // SECCIÓN DE CASOS CON FILTROS COMBINADOS (TEMPORALIDAD + ESTATUS) Y SCROLL
     function renderCasesList() {
       const list = document.getElementById('casesList');
       if (!list) return;
@@ -1311,7 +1254,6 @@
       if (selectReferrer) selectReferrer.innerHTML = referrerOptions;
     }
 
-    // OPERACIONES CRUD EN FIREBASE (VINCULADAS AL DESPACHO ACTIVO)
     function handleContactSubmit(e) {
       e.preventDefault();
       const id = document.getElementById('contactId').value || ('c_' + Date.now());
