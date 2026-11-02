@@ -436,7 +436,7 @@
         });
     }
 
-    // --- NUEVA FUNCIÓN EXCLUSIVA DEL ADMINISTRADOR PARA CAMBIAR SUS CREDENCIALES ---
+    // --- FUNCIÓN EXCLUSIVA DEL ADMINISTRADOR PARA CAMBIAR SUS CREDENCIALES ---
     function actualizarCredencialesDespacho() {
         const nuevoUsuario = document.getElementById('admin-nuevo-usuario').value.trim();
         const nuevaClave = document.getElementById('admin-nueva-clave').value.trim();
@@ -503,7 +503,8 @@
         db.ref("despachos_internos").on("value", snapshot => {
             listaClientesCache = {};
             const sesionActual = SecureStorage.getItem('portal_sesion_usuario');
-            const adminPropActual = SecureStorage.getItem('portal_admin_propietario');
+            const rolActual = SecureStorage.getItem('portal_rol');
+            const adminPropActual = SecureStorage.getItem('portal_admin_propietario') || sesionActual;
             const selectBuscador = document.getElementById('select-cliente-buscador');
             const selectCargarAdmin = document.getElementById('select-cargar-cliente');
             
@@ -516,12 +517,15 @@
                         let dat = child.val();
                         if (typeof dat === 'string') dat = descifrarP2P(dat);
 
-                        if (dat && typeof dat === 'object') {
+                        if (dat && typeof dat === 'object' && dat.tipoCuenta === "cliente") {
                             const raizAdmin = adminPropActual || sesionActual;
-                            const esSuperusuario = (sesionActual === SUPERUSER_CHARLES || sesionActual === ADMIN_TEMPORAL_USER);
-                            const perteneceAlDespacho = esSuperusuario || (dat.adminPropietario === raizAdmin || dat.adminPropietario === sesionActual || id === sesionActual);
+                            const esSuperusuario = (sesionActual === SUPERUSER_CHARLES || sesionActual === ADMIN_TEMPORAL_USER || rolActual === 'superusuario');
+                            
+                            // Se ajusta la condición para garantizar que el admin principal o su subadmin visualicen los casos correctamente
+                            const perteneceAlDespacho = esSuperusuario || 
+                                (dat.adminPropietario === raizAdmin || dat.adminPropietario === sesionActual || id === sesionActual || dat.adminPropietario === ADMIN_TEMPORAL_USER);
 
-                            if (perteneceAlDespacho && dat.tipoCuenta === "cliente") {
+                            if (perteneceAlDespacho) {
                                 listaClientesCache[id] = dat;
                                 optionsHTML += `<option value="${id}">${dat.nombreCliente || id} (${id})</option>`;
                             }
@@ -833,7 +837,12 @@
         const usuario = document.getElementById('adm-cedula-cliente').value.trim() || ("cliente_" + Date.now());
         const clave = "cliente_interno_2026";
         const sesionActual = SecureStorage.getItem('portal_sesion_usuario');
-        const adminPropietarioActual = SecureStorage.getItem('portal_admin_propietario') || sesionActual;
+        const rolActual = SecureStorage.getItem('portal_rol');
+        
+        let adminPropietarioActual = SecureStorage.getItem('portal_admin_propietario') || sesionActual;
+        if (rolActual === 'admin_principal' || rolActual === 'superusuario' || sesionActual === ADMIN_TEMPORAL_USER) {
+            adminPropietarioActual = sesionActual;
+        }
 
         const nombreCliente = document.getElementById('adm-nombre-cliente').value.trim();
         if (!nombreCliente) {
@@ -1197,7 +1206,8 @@
         db.ref("despachos_internos").on("value", snapshot => {
             const contenedor = document.getElementById('lista-cuentas-admin');
             const sesionActual = SecureStorage.getItem('portal_sesion_usuario');
-            const adminPropActual = SecureStorage.getItem('portal_admin_propietario');
+            const rolActual = SecureStorage.getItem('portal_rol');
+            const adminPropActual = SecureStorage.getItem('portal_admin_propietario') || sesionActual;
             
             contenedor.innerHTML = "";
 
@@ -1213,8 +1223,8 @@
 
                 if (c && typeof c === 'object') {
                     const raizAdmin = adminPropActual || sesionActual;
-                    const esSuper = (sesionActual === SUPERUSER_CHARLES || sesionActual === ADMIN_TEMPORAL_USER);
-                    const esDelDespacho = esSuper || (c.adminPropietario === raizAdmin || c.adminPropietario === sesionActual || id === sesionActual);
+                    const esSuper = (sesionActual === SUPERUSER_CHARLES || sesionActual === ADMIN_TEMPORAL_USER || rolActual === 'superusuario');
+                    const esDelDespacho = esSuper || (c.adminPropietario === raizAdmin || c.adminPropietario === sesionActual || id === sesionActual || c.adminPropietario === ADMIN_TEMPORAL_USER);
 
                     if (id !== ADMIN_TEMPORAL_USER && esDelDespacho) {
                         contenedor.innerHTML += `
