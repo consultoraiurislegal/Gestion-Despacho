@@ -834,96 +834,105 @@
     }
 
     async function guardarExpedienteCompleto() {
-        const usuario = document.getElementById('adm-cedula-cliente').value.trim() || ("cliente_" + Date.now());
-        const clave = "cliente_interno_2026";
-        const sesionActual = SecureStorage.getItem('portal_sesion_usuario');
-        const rolActual = SecureStorage.getItem('portal_rol');
-        
-        let adminPropietarioActual = SecureStorage.getItem('portal_admin_propietario') || sesionActual;
-        if (rolActual === 'admin_principal' || rolActual === 'superusuario' || sesionActual === ADMIN_TEMPORAL_USER) {
-            adminPropietarioActual = sesionActual;
-        }
+        try {
+            const inputCedula = document.getElementById('adm-cedula-cliente');
+            const inputNombre = document.getElementById('adm-nombre-cliente');
 
-        const nombreCliente = document.getElementById('adm-nombre-cliente').value.trim();
-        if (!nombreCliente) {
-            alert("Por favor, ingrese al menos el nombre del cliente/expediente.");
-            return;
-        }
-
-        const datosClientePersonalizados = [];
-        document.querySelectorAll('#contenedor-campos-cliente-dinamicos .item-campo-dinamico').forEach(item => {
-            const nom = item.querySelector('.cpc-nombre').value.trim();
-            const val = item.querySelector('.cpc-valor').value.trim();
-            if (nom) {
-                datosClientePersonalizados.push({
-                    nombre: nom,
-                    tipo: item.querySelector('.cpc-tipo').value,
-                    valor: val
-                });
+            if (!inputNombre || !inputNombre.value.trim()) {
+                alert("⚠️ Error: Por favor, ingrese al menos el nombre del cliente/expediente.");
+                if (inputNombre) inputNombre.focus();
+                return;
             }
-        });
 
-        const expedientes = [];
-        document.querySelectorAll('.expediente-card').forEach(card => {
-            const materia = card.querySelector('.exp-materia').value;
-            const camposPersonalizados = [];
-            card.querySelectorAll('.contenedor-campos-personalizados .item-campo-dinamico').forEach(item => {
-                const nom = item.querySelector('.cp-nombre').value.trim();
-                const val = item.querySelector('.cp-valor').value.trim();
+            const usuarioId = inputCedula && inputCedula.value.trim() ? inputCedula.value.trim() : ("cliente_" + Date.now());
+            const clave = "cliente_interno_2026";
+            const sesionActual = SecureStorage.getItem('portal_sesion_usuario') || 'admin';
+            const rolActual = SecureStorage.getItem('portal_rol') || 'admin_principal';
+            
+            let adminPropietarioActual = SecureStorage.getItem('portal_admin_propietario') || sesionActual;
+            if (rolActual === 'admin_principal' || rolActual === 'superusuario' || sesionActual === ADMIN_TEMPORAL_USER) {
+                adminPropietarioActual = sesionActual;
+            }
+
+            const datosClientePersonalizados = [];
+            document.querySelectorAll('#contenedor-campos-cliente-dinamicos .item-campo-dinamico').forEach(item => {
+                const nom = item.querySelector('.cpc-nombre').value.trim();
+                const val = item.querySelector('.cpc-valor').value.trim();
                 if (nom) {
-                    camposPersonalizados.push({
+                    datosClientePersonalizados.push({
                         nombre: nom,
-                        tipo: item.querySelector('.cp-tipo').value,
+                        tipo: item.querySelector('.cpc-tipo').value,
                         valor: val
                     });
                 }
             });
 
-            const expData = {
-                materia: materia,
-                numExpediente: card.querySelector('.exp-num').value.trim(),
-                tribunal: card.querySelector('.exp-tribunal').value.trim(),
-                camposPersonalizados: camposPersonalizados
+            const expedientes = [];
+            document.querySelectorAll('.expediente-card').forEach(card => {
+                const materia = card.querySelector('.exp-materia').value;
+                const camposPersonalizados = [];
+                card.querySelectorAll('.contenedor-campos-personalizados .item-campo-dinamico').forEach(item => {
+                    const nom = item.querySelector('.cp-nombre').value.trim();
+                    const val = item.querySelector('.cp-valor').value.trim();
+                    if (nom) {
+                        camposPersonalizados.push({
+                            nombre: nom,
+                            tipo: item.querySelector('.cp-tipo').value,
+                            valor: val
+                        });
+                    }
+                });
+
+                const expData = {
+                    materia: materia,
+                    numExpediente: card.querySelector('.exp-num').value.trim(),
+                    tribunal: card.querySelector('.exp-tribunal').value.trim(),
+                    camposPersonalizados: camposPersonalizados
+                };
+
+                if (materia === 'Penal') {
+                    expData.delito = card.querySelector('.exp-delito').value.trim();
+                    expData.fase = card.querySelector('.exp-fase-penal').value;
+                    const acervo = card.querySelector('.exp-acervo-probatorio');
+                    const rend = card.querySelector('.exp-rendiciones-pena');
+                    expData.acervoProbatorio = acervo ? acervo.value.trim() : '';
+                    expData.rendicionesPena = rend ? rend.value.trim() : '';
+                } else {
+                    expData.partes = card.querySelector('.exp-partes').value.trim();
+                    expData.estadoCausa = card.querySelector('.exp-estado-causa').value.trim();
+                }
+
+                expedientes.push(expData);
+            });
+
+            const payload = {
+                usuario: usuarioId,
+                clave: clave,
+                rol: "cliente_interno",
+                tipoCuenta: "cliente",
+                adminPropietario: adminPropietarioActual, 
+                fechaRecepcion: document.getElementById('adm-fecha-recepcion').value,
+                abogadoAsignado: document.getElementById('adm-abogado').value,
+                nombreCliente: inputNombre.value.trim(),
+                cedulaCliente: inputCedula ? inputCedula.value.trim() : '',
+                dirCliente: document.getElementById('adm-dir-cliente').value.trim(),
+                telCliente: document.getElementById('adm-tel-cliente').value.trim(),
+                datosClientePersonalizados: datosClientePersonalizados,
+                expedientes: expedientes
             };
 
-            if (materia === 'Penal') {
-                expData.delito = card.querySelector('.exp-delito').value.trim();
-                expData.fase = card.querySelector('.exp-fase-penal').value;
-                const acervo = card.querySelector('.exp-acervo-probatorio');
-                const rend = card.querySelector('.exp-rendiciones-pena');
-                expData.acervoProbatorio = acervo ? acervo.value.trim() : '';
-                expData.rendicionesPena = rend ? rend.value.trim() : '';
-            } else {
-                expData.partes = card.querySelector('.exp-partes').value.trim();
-                expData.estadoCausa = card.querySelector('.exp-estado-causa').value.trim();
-            }
-
-            expedientes.push(expData);
-        });
-
-        const payload = {
-            usuario: usuario,
-            clave: clave,
-            rol: "cliente_interno",
-            tipoCuenta: "cliente",
-            adminPropietario: adminPropietarioActual, 
-            fechaRecepcion: document.getElementById('adm-fecha-recepcion').value,
-            abogadoAsignado: document.getElementById('adm-abogado').value,
-            nombreCliente: nombreCliente,
-            cedulaCliente: document.getElementById('adm-cedula-cliente').value.trim(),
-            dirCliente: document.getElementById('adm-dir-cliente').value.trim(),
-            telCliente: document.getElementById('adm-tel-cliente').value.trim(),
-            datosClientePersonalizados: datosClientePersonalizados,
-            expedientes: expedientes
-        };
-
-        db.ref("despachos_internos/" + usuario).set(cifrarP2P(payload)).then(() => {
-            alert("¡Expediente de cliente guardado de forma segura en la base de datos del despacho!");
+            console.log("Guardando en Firebase ruta:", "despachos_internos/" + usuarioId);
+            
+            await db.ref("despachos_internos/" + usuarioId).set(cifrarP2P(payload));
+            
+            alert("✅ ¡Expediente de cliente guardado con éxito en la base de datos!");
             cargarListaCuentasAdmin();
             cargarCacheClientesGlobal();
-        }).catch(error => {
-            alert("Error al guardar: " + error.message);
-        });
+
+        } catch (error) {
+            console.error("Error al ejecutar guardarExpedienteCompleto:", error);
+            alert("❌ Error al guardar en Firebase: " + error.message);
+        }
     }
 
     function intentarIngresoPortal() {
