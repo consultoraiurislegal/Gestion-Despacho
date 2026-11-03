@@ -1,3 +1,4 @@
+```html
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -1049,9 +1050,9 @@
             agregarCampoExpediente();
         }
 
-        if (permisos.includes('tab-admin')) {
-            cargarListaCuentasAdmin();
-        }
+        // Forzar actualización inmediata de clientes y lista de cuentas al ingresar
+        cargarCacheClientesGlobal();
+        cargarListaCuentasAdmin();
     }
 
     function renderizarInformacionGeneral(usuario, d) {
@@ -1279,3 +1280,4 @@
 
 </body>
 </html>
+```
