@@ -1322,7 +1322,17 @@
       const alertText = document.getElementById('caseAlertText').value.trim();
       const details = document.getElementById('caseDetails').value.trim();
 
-      if (!title || !referrerId) return;
+      if (!title) {
+        alert("⚠️ Por favor, ingrese el título del caso o expediente.");
+        document.getElementById('caseName').focus();
+        return;
+      }
+
+      if (!referrerId) {
+        alert("⚠️ Debe seleccionar un Referidor Principal. Si no hay contactos, registre uno primero desde '+ Contacto'.");
+        document.getElementById('caseReferrer').focus();
+        return;
+      }
 
       const newCase = { id, title, referrerId, caseDate, status, fee, commOrig, alertTime, alertText, details };
 
@@ -1332,6 +1342,8 @@
         localStorage.setItem('legalmind_triggered_alerts_' + DESPACHO_ACTIVO_ID, JSON.stringify(triggeredList));
 
         closeModal('modalCase');
+      }).catch(err => {
+        alert("❌ Error al guardar en Firebase: " + err.message);
       });
     }
 
